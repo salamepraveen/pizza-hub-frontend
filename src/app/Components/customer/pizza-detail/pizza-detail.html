@@ -1,0 +1,92 @@
+<div class="pizza-detail-page" *ngIf="!loading && pizza">
+  <button class="back-btn" (click)="router.navigate(['/customer'])">Back to Menu</button>
+
+  <div class="detail-container">
+    <div class="detail-left">
+      <div class="detail-image">
+        <img [src]="pizza.imageUrl || 'https://placehold.co/500x400/e94560/fff?text=Pizza'" alt="pizza.name">
+        <span class="badge-large" [class.veg]="pizza.vegetarian" [class.nonveg]="!pizza.vegetarian">
+          {{ pizza.vegetarian ? 'Vegetarian' : 'Non-Vegetarian' }}
+        </span>
+      </div>
+    </div>
+
+    <div class="detail-right">
+      <h1 class="pizza-name">{{ pizza.name }}</h1>
+      <p class="pizza-description">{{ pizza.description }}</p>
+
+      <!-- Size Selection -->
+      <div class="customization-section">
+        <h3>Choose Size</h3>
+        <div class="size-options">
+          <button *ngFor="let size of pizza.sizes"
+                  class="size-btn" [class.selected]="selectedSize?.size === size.size"
+                  (click)="selectSize(size)">
+            <span class="size-name">{{ getSizeLabel(size.size) }}</span>
+            <span class="size-price" *ngIf="size.price > 0">+₹{{ size.price }}</span>
+            <span class="size-price" *ngIf="!size.price">Free</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Toppings -->
+      <div class="customization-section" *ngIf="pizza.toppings?.length > 0">
+        <h3>Extra Toppings</h3>
+        <div class="toppings-list">
+          <label *ngFor="let topping of pizza.toppings" class="topping-item" [class.selected]="isToppingSelected(topping)">
+            <input type="checkbox" [checked]="isToppingSelected(topping)" (change)="toggleTopping(topping)">
+            <span class="topping-name">{{ topping.name }}</span>
+            <span class="topping-price">{{ getToppingCost(topping) }}</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Quantity -->
+      <div class="customization-section">
+        <h3>Quantity</h3>
+        <div class="quantity-control">
+          <button class="qty-btn" (click)="changeQuantity(-1)">-</button>
+          <span class="qty-value">{{ quantity }}</span>
+          <button class="qty-btn" (click)="changeQuantity(1)">+</button>
+        </div>
+      </div>
+
+      <!-- Total -->
+      <div class="order-summary">
+        <div class="total-row">
+          <span>Total:</span>
+          <span class="total-price">₹{{ itemTotal }}</span>
+        </div>
+        <div class="price-breakdown" *ngIf="selectedSize">
+          <span>Base ({{ getSizeLabel(selectedSize.size) }}): ₹{{ getBaseSizePrice() }}</span>
+          <span *ngIf="toppingsTotal > 0">Toppings: +₹{{ toppingsTotal }}</span>
+        </div>
+
+        <button class="add-cart-btn" *ngIf="!addedToCart" (click)="addToCart()">
+          Add to Cart - ₹{{ itemTotal }}
+        </button>
+        <div class="added-message" *ngIf="addedToCart">
+          <p class="success-msg">{{ addMessage }}</p>
+          <div class="added-actions">
+            <button class="continue-btn" (click)="router.navigate(['/customer'])">Continue Shopping</button>
+            <button class="cart-btn-red" (click)="goToCart()">Go to Cart</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading -->
+<div class="loading-spinner" *ngIf="loading">
+  <div class="spinner"></div>
+  <p>Loading pizza details...</p>
+</div>
+
+<!-- Error -->
+<div class="error-container" *ngIf="error">
+  <p>{{ error }}</p>
+  <button class="back-btn" (click)="router.navigate(['/customer'])">Back to Menu</button>
+</div>
+
+

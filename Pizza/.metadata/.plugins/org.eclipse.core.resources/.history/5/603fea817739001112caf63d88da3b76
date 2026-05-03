@@ -1,0 +1,5 @@
+package com.prav.auth.dto;
+
+public class OtpRequestDTO {
+
+}

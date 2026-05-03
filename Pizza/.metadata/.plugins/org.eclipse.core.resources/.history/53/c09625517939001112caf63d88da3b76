@@ -1,0 +1,74 @@
+package com.prav.user.service;
+
+import com.prav.user.model.Restaurant;
+import com.prav.user.model.User;
+import com.prav.user.repository.RestaurantRepository;
+import com.prav.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class UserServiceTest {
+
+    @Mock
+    private UserRepository userRepo;
+
+    @Mock
+    private RestaurantRepository restaurantRepo;
+
+    @InjectMocks
+    private UserService userService;
+
+    private User testUser;
+    private Restaurant restaurant1;
+    private Restaurant restaurant2;
+
+    @BeforeEach
+    void setUp() {
+        testUser = new User();
+        testUser.setId(1L);
+        testUser.setUsername("prav");
+        testUser.setPassword("encoded");
+        testUser.setRole("USER");
+        testUser.setKnownRestaurantIds(new ArrayList<>());
+
+        restaurant1 = new Restaurant();
+        restaurant1.setId(10L);
+        restaurant1.setName("Pizza Palace");
+
+        restaurant2 = new Restaurant();
+        restaurant2.setId(20L);
+        restaurant2.setName("Burger King");
+    }
+
+    // ==================== createUser ====================
+
+    @Test
+    void createUser_newUser_success() {
+        when(userRepo.findByUsername("prav")).thenReturn(Optional.empty());
+        when(restaurantRepo.findAll()).thenReturn(List.of(restaurant1));
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            u.setId(1L);
+            return u;
+        });
+
+        User saved = userService.createUser(testUser);
+
+        assertEquals("USER", saved.getRole());
+        assertEquals(1, saved.getKnownRestaurantIds().size());
+        assertEquals(10L, saved.getKnownRestaurantIds().get(0));
+        verify(userRepo).save(any(User.class));
+    }
+
+    @Test

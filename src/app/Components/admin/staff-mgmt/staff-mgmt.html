@@ -1,0 +1,71 @@
+<div class="staff-page">
+  <div class="page-header">
+    <div>
+      <h2>Staff Management</h2>
+      <p class="subtitle">{{ users.length }} users |
+        <span class="count-admin">{{ getAdminCount() }} Admin</span> ·
+        <span class="count-staff">{{ getStaffCount() }} Staff</span> ·
+        <span class="count-user">{{ getUserCount() }} User</span>
+      </p>
+    </div>
+  </div>
+  <div class="info-banner"><strong>How it works:</strong> Users sign up and get the <code>USER</code> role. Promote them to <code>STAFF</code> or <code>ADMIN</code>, or demote back to <code>USER</code>.</div>
+  <div class="filters">
+    <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="Search by username or email..." class="search-input" />
+    <select [(ngModel)]="selectedFilter" (ngModelChange)="onFilterChange()" class="filter-select">
+      <option value="ALL">All Roles</option>
+      <option value="ADMIN">Admin</option>
+      <option value="STAFF">Staff</option>
+      <option value="USER">User</option>
+    </select>
+  </div>
+  <div *ngIf="error" class="error-banner" (click)="error=''" style="cursor:pointer">{{ error }} ✕</div>
+  <div *ngIf="loading" class="loading">Loading users...</div>
+
+  <div class="card" *ngIf="!loading">
+    <div class="table-container">
+      <table *ngIf="filteredUsers.length > 0; else noUsers">
+        <thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th><th>Restaurant</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let user of filteredUsers">
+            <td>{{ user.id }}</td>
+            <td><strong>{{ user.username }}</strong></td>
+            <td>{{ user.email || '-' }}</td>
+            <td><span class="role-badge" [ngClass]="getRoleBadgeClass(user.role)">{{ user.role }}</span></td>
+            <td>{{ user.assignedRestaurantId || 'None' }}</td>
+            <td class="actions-cell">
+              <button class="btn-sm btn-promote" *ngIf="user.role?.toUpperCase() === 'USER'" (click)="openPromoteModal(user)">Promote</button>
+              <button class="btn-sm btn-demote" *ngIf="user.role?.toUpperCase() !== 'USER' && user.id !== currentUserId" (click)="demoteUser(user)">Demote</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #noUsers><div class="empty-state"><p>👥 No users found.</p></div></ng-template>
+    </div>
+  </div>
+
+  <!-- PROMOTE MODAL -->
+  <div *ngIf="showPromoteModal && promoteTarget" class="modal-overlay" (click)="closePromoteModal()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header"><h3>Promote User</h3><button class="btn-close" (click)="closePromoteModal()">✕</button></div>
+      <div class="modal-body">
+        <div class="promote-info">
+          <div class="promote-avatar">{{ promoteTarget.username.charAt(0).toUpperCase() }}</div>
+          <div><strong>{{ promoteTarget.username }}</strong><p>{{ promoteTarget.email || 'No email' }}</p><p class="current-role">Current: <span class="role-badge user">{{ promoteTarget.role }}</span></p></div>
+        </div>
+        <div *ngIf="error" class="error-banner">{{ error }}</div>
+        <div class="form-group"><label>Select New Role</label>
+          <div class="role-options">
+            <label class="role-option" [class.selected]="promoteRole === 'STAFF'"><input type="radio" [(ngModel)]="promoteRole" value="STAFF" /><div class="role-option-content"><span class="role-option-icon">👨‍🍳</span><span class="role-option-name">STAFF</span><span class="role-option-desc">Can manage orders, view menu</span></div></label>
+            <label class="role-option" [class.selected]="promoteRole === 'ADMIN'"><input type="radio" [(ngModel)]="promoteRole" value="ADMIN" /><div class="role-option-content"><span class="role-option-icon">👑</span><span class="role-option-name">ADMIN</span><span class="role-option-desc">Full access</span></div></label>
+          </div>
+        </div>
+        <div class="warning-box" *ngIf="promoteRole === 'ADMIN'">⚠️ This user will get full admin access.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closePromoteModal()">Cancel</button>
+        <button class="btn-primary" (click)="promoteUser()">Promote to {{ promoteRole }}</button>
+      </div>
+    </div>
+  </div>
+</div>

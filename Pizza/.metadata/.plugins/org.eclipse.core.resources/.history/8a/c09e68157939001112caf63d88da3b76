@@ -1,0 +1,333 @@
+package com.prav.user.repository;
+
+import com.prav.user.model.User;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@DataJpaTest
+class UserRepositoryTest {
+
+    @Autowired
+    private TestEntityManager entityManager;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    private User user1;
+    private User user2;
+    private User user3;
+
+    @BeforeEach
+    void setUp() {
+        user1 = new User();
+        user1.setUsername("prav");
+        user1.setPassword("encoded123");
+        user1.setRole("USER");
+        user1.setKnownRestaurantIds(new ArrayList<>());
+
+        user2 = new User();
+        user2.setUsername("admin");
+        user2.setPassword("encoded456");
+        user2.setRole("ADMIN");
+        user2.setKnownRestaurantIds(new ArrayList<>());
+
+        user3 = new User();
+        user3.setUsername("staff1");
+        user3.setPassword("encoded789");
+        user3.setRole("STAFF");
+        user3.setAssignedRestaurantId(1L);
+        user3.setKnownRestaurantIds(new ArrayList<>(List.of(1L)));
+    }
+
+    // ==================== findByUsername ====================
+
+    @Test
+    void findByUsername_exists_returnsUser() {
+        entityManager.persistAndFlush(user1);
+
+        Optional<User> found = userRepository.findByUsername("prav");
+
+        assertTrue(found.isPresent());
+        assertEquals("prav", found.get().getUsername());
+        assertEquals("USER", found.get().getRole());
+    }
+
+    @Test
+    void findByUsername_notExists_returnsEmpty() {
+        Optional<User> found = userRepository.findByUsername("ghost");
+        assertTrue(found.isEmpty());
+    }
+
+    @Test
+    void findByUsername_caseSensitive_doesNotMatch() {
+        entityManager.persistAndFlush(user1);
+
+        Optional<User> found = userRepository.findByUsername("PRAV");
+        assertTrue(found.isEmpty());
+    }
+
+    // ==================== findByRole ====================
+
+    @Test
+    void findByRole_matchingUsers_returnsList() {
+        entityManager.persistAndFlush(user1);
+        entityManager.persistAndFlush(user2);
+
+        List<User> users = userRepository.findByRole("USER");
+
+        assertEquals(1, users.size());
+        assertEquals("prav", users.get(0).getUsername());
+    }
+
+    @Test
+    void findByRole_noMatch_returnsEmptyList() {
+        entityManager.persistAndFlush(user1);
+
+        List<User> users = userRepository.findByRole("ADMIN");
+
+        assertEquals(0, users.size());
+    }
+
+    @Test
+    void findByRole_allAdmins() {
+        entityManager.persistAndFlush(user1);
+        entityManager.persistAndFlush(user2);
+
+        List<User> admins = userRepository.findByRole("ADMIN");
+
+        assertEquals(1, admins.size());
+        assertEquals("admin", admins.get(0).getUsername());
+    }
+
+    @Test
+    void findByRole_multipleUsersSameRole() {
+        user1.setRole("STAFF");
+        user2.setRole("STAFF");
+        entityManager.persistAndFlush(user1);
+        entityManager.persistAndFlush(user2);
+
+        List<User> staff = userRepository.findByRole("STAFF");
+
+        assertEquals(2, staff.size());
+    }
+
+    // ==================== findByAssignedRestaurantId ====================
+
+    @Test
+    void findByAssignedRestaurantId_matchingUsers_returnsList() {
+        entityManager.persistAndFlush(user3);
+
+        List<User> users = userRepository.findByAssignedRestaurantId(1L);
+
+        assertEquals(1, users.size());
+        assertEquals("staff1", users.get(0).getUsername());
+    }
+
+    @Test
+    void findByAssignedRestaurantId_noMatch_returnsEmptyList() {
+        entityManager.persistAndFlush(user1);
+
+        List<User> users = userRepository.findByAssignedRestaurantId(999L);
+
+        assertEquals(0, users.size());
+    }
+
+    @Test
+    void findByAssignedRestaurantId_multipleUsers() {
+        user1.setAssignedRestaurantId(5L);
+        user2.setAssignedRestaurantId(5L);
+        entityManager.persistAndFlush(user1);
+        entityManager.persistAndFlush(user2);
+
+        List<User> users = userRepository.findByAssignedRestaurantId(5L);
+
+        assertEquals(2, users.size());
+    }
+
+    @Test
+    void findByAssignedRestaurantId_nullAssignment_notReturned() {
+        user1.setAssignedRestaurantId(null);
+        entityManager.persistAndFlush(user1);
+        entityManager.persistAndFlush(user3);
+
+        List<User> users = userRepository.findByAssignedRestaurantId(1L);
+
+        assertEquals(1, users.size());
+        assertEquals("staff1", users.get(0).getUsername());
+    }
+
+    // ==================== findById ====================
+
+    @Test
+    void findById_exists_returnsUser() {
+        User saved = entityManager.persistAndFlush(user1);
+
+        Optional<User> found = userRepository.findById(saved.getId());
+
+        assertTrue(found.isPresent());
+        assertEquals("prav", found.get().getUsername());
+        assertEquals("USER", found.get().getRole());
+    }
+
+    @Test
+    void findById_notExists_returnsEmpty() {
+        Optional<User> found = userRepository.findById(9999L);
+        assertTrue(found.isEmpty());
+    }
+
+    // ==================== save ====================
+
+    @Test
+    void save_persistsUser() {
+        User saved = userRepository.save(user1);
+
+        assertNotNull(saved.getId());
+        assertEquals("prav", saved.getUsername());
+
+        Optional<User> found = userRepository.findById(saved.getId());
+        assertTrue(found.isPresent());
+    }
+
+    @Test
+    void save_userWithKnownRestaurants_persistsCollection() {
+        user1.setKnownRestaurantIds(new ArrayList<>(List.of(10L, 20L)));
+        User saved = entityManager.persistAndFlush(user1);
+        entityManager.clear();
+
+        Optional<User> found = userRepository.findById(saved.getId());
+        assertTrue(found.isPresent());
+        assertNotNull(found.get().getKnownRestaurantIds());
+        assertEquals(2, found.get().getKnownRestaurantIds().size());
+    }
+
+    @Test
+    void save_userWithEmptyKnownRestaurants_persists() {
+        user1.setKnownRestaurantIds(new ArrayList<>());
+        User saved = entityManager.persistAndFlush(user1);
+
+        assertNotNull(saved.getId());
+        assertNotNull(saved.getKnownRestaurantIds());
+        assertTrue(saved.getKnownRestaurantIds().isEmpty());
+    }
+
+    @Test
+    void save_updatesExistingUser() {
+        User saved = entityManager.persistAndFlush(user1);
+        entityManager.clear();
+
+        saved.setUsername("updated_prav");
+        userRepository.save(saved);
+
+        Optional<User> found = userRepository.findById(saved.getId());
+        assertTrue(found.isPresent());
+        assertEquals("updated_prav", found.get().getUsername());
+    }
+
+    @Test
+    void save_userWithAssignedRestaurant_persists() {
+        user1.setAssignedRestaurantId(10L);
+        User saved = entityManager.persistAndFlush(user1);
+        entityManager.clear();
+
+        Optional<User> found = userRepository.findById(saved.getId());
+        assertTrue(found.isPresent());
+        assertEquals(10L, found.get().getAssignedRestaurantId());
+    }
+
+    // ==================== deleteById ====================
+
+    @Test
+    void deleteById_removesUser() {
+        User saved = entityManager.persistAndFlush(user1);
+        entityManager.clear();
+
+        userRepository.deleteById(saved.getId());
+
+        Optional<User> found = userRepository.findById(saved.getId());
+        assertTrue(found.isEmpty());
+    }
+
+    @Test
+    void deleteById_nonExistent_noError() {
+        assertDoesNotThrow(() -> userRepository.deleteById(9999L));
+    }
+
+    // ==================== findAll ====================
+
+    @Test
+    void findAll_returnsAllUsers() {
+        entityManager.persistAndFlush(user1);
+        entityManager.persistAndFlush(user2);
+
+        List<User> all = userRepository.findAll();
+        assertEquals(2, all.size());
+    }
+
+    @Test
+    void findAll_emptyDb_returnsEmptyList() {
+        List<User> all = userRepository.findAll();
+        assertTrue(all.isEmpty());
+    }
+
+    // ==================== count ====================
+
+    @Test
+    void count_returnsCorrectCount() {
+        entityManager.persistAndFlush(user1);
+        entityManager.persistAndFlush(user2);
+
+        assertEquals(2, userRepository.count());
+    }
+
+    @Test
+    void count_emptyDb_returnsZero() {
+        assertEquals(0, userRepository.count());
+    }
+
+    // ==================== Edge Cases ====================
+
+    @Test
+    void save_userWithNullKnownRestaurants_persists() {
+        user1.setKnownRestaurantIds(null);
+        User saved = entityManager.persistAndFlush(user1);
+
+        assertNotNull(saved.getId());
+    }
+
+    @Test
+    void save_userWithAllFields_persists() {
+        user1.setAssignedRestaurantId(5L);
+        user1.setKnownRestaurantIds(new ArrayList<>(List.of(5L)));
+        User saved = entityManager.persistAndFlush(user1);
+        entityManager.clear();
+
+        Optional<User> found = userRepository.findById(saved.getId());
+        assertTrue(found.isPresent());
+        assertEquals("prav", found.get().getUsername());
+        assertEquals("USER", found.get().getRole());
+        assertEquals("encoded123", found.get().getPassword());
+        assertEquals(5L, found.get().getAssignedRestaurantId());
+        assertEquals(1, found.get().getKnownRestaurantIds().size());
+    }
+
+    @Test
+    void findByUsername_afterUpdate_returnsUpdatedUser() {
+        entityManager.persistAndFlush(user1);
+
+        user1.setUsername("newname");
+        userRepository.save(user1);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> found = userRepository.findByUsername("newname");
+        assertTrue(found.isPresent());
+        assertEquals("newname", found.get().getUsername());
+    }
+}

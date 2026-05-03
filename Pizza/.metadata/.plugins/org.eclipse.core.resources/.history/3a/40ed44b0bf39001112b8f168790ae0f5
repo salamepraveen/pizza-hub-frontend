@@ -1,0 +1,227 @@
+package com.prav.order.service;
+
+import com.razorpay.Order;
+import com.razorpay.RazorpayClient;
+import com.razorpay.RazorpayException;
+import com.razorpay.Refund;
+import com.prav.order.dto.RefundResponseDTO;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import com.razorpay.Utils;
+import java.math.BigDecimal;
+import com.razorpay.Utils;
+@Service
+public class RazorpayPaymentService {
+
+    @Value("${razorpay.key-id}")
+    private String keyId;
+
+    @Value("${razorpay.key-secret}")
+    private String keySecret;
+
+    @Value("${razorpay.currency}")
+    private String currency;
+
+    @Value("${razorpay.refund-percentage}")
+    private int refundPercentage;
+
+    private RazorpayClient getClient() throws RazorpayException {
+        return new RazorpayClient(keyId, keySecret);
+    }
+
+//    public Order createRazorpayOrder(Long orderId, BigDecimal amount) {
+//        try {
+//            RazorpayClient client = getClient();
+//            JSONObject orderRequest = new JSONObject();
+//            long amountInPaise = amount.multiply(BigDecimal.valueOf(100)).longValue();
+//            orderRequest.put("amount", amountInPaise);
+//            orderRequest.put("currency", currency);
+//            orderRequest.put("receipt", "order_rcpt_" + orderId);
+//
+//            Order razorpayOrder = client.Orders.create(orderRequest);
+//
+//            System.out.println("========================================");
+//            System.out.println("  RAZORPAY ORDER CREATED");
+//            System.out.println("  Order ID: " + orderId);
+//            System.out.println("  Razorpay Order ID: " + razorpayOrder.get("id"));
+//            System.out.println("  Amount: " + currency + " " + amount);
+//            System.out.println("========================================");
+//
+//            return razorpayOrder;
+//        } catch (RazorpayException e) {
+//            System.out.println("  [RAZORPAY] !! Order creation failed: " + e.getMessage());
+//            throw new RuntimeException("Failed to create payment order: " + e.getMessage());
+//        }
+//    }
+//
+//    public boolean verifyPayment(String orderId, String paymentId, String signature) {
+//        try {
+//            System.out.println("  [PAYMENT] Verifying...");
+//            System.out.println("  [PAYMENT] Order: " + orderId + " | Payment: " + paymentId);
+//
+//            JSONObject attributes = new JSONObject();
+//            attributes.put("razorpay_order_id", orderId);
+//            attributes.put("razorpay_payment_id", paymentId);
+//            attributes.put("razorpay_signature", signature);
+//
+//            return Utils.verifyPaymentSignature(attributes, keySecret);
+//        } catch (Exception e) {
+//            System.out.println("  [PAYMENT] !! Verification failed: " + e.getMessage());
+//            return false;
+//        }
+//    }
+//
+//    public RefundResponseDTO processRefund(Long orderId, BigDecimal originalAmount, String razorpayPaymentId) {
+//        try {
+//            RazorpayClient client = getClient();
+//
+//            BigDecimal refundFactor = BigDecimal.valueOf(refundPercentage).divide(BigDecimal.valueOf(100));
+//            BigDecimal refundAmount = originalAmount.multiply(refundFactor);
+//            BigDecimal deduction = originalAmount.subtract(refundAmount);
+//            long refundInPaise = refundAmount.multiply(BigDecimal.valueOf(100)).longValue();
+//
+//            JSONObject refundRequest = new JSONObject();
+//            refundRequest.put("amount", refundInPaise);
+//            refundRequest.put("speed", "normal");
+//
+//            System.out.println("========================================");
+//            System.out.println("  PROCESSING REFUND");
+//            System.out.println("  Order ID: " + orderId);
+//            System.out.println("  Original: " + currency + " " + originalAmount);
+//            System.out.println("  Refund (" + refundPercentage + "%): " + currency + " " + refundAmount);
+//            System.out.println("  Deduction: " + currency + " " + deduction);
+//            System.out.println("========================================");
+//
+//            Refund refund = client.Payments.refund(razorpayPaymentId, refundRequest);
+//
+//            System.out.println("  [REFUND] ID: " + refund.get("id") + " | Status: " + refund.get("status"));
+//
+//            return RefundResponseDTO.builder()
+//                    .orderId(orderId)
+//                    .originalAmount(originalAmount)
+//                    .refundAmount(refundAmount)
+//                    .deductionAmount(deduction)
+//                    .refundPercentage(refundPercentage)
+//                    .refundId(refund.get("id").toString())
+//                    .status(refund.get("status").toString())
+//                    .message(refundPercentage + "% refund processed. " + currency + " " + deduction + " deducted as cancellation fee.")
+//                    .build();
+//        } catch (RazorpayException e) {
+//            System.out.println("  [REFUND] !! Failed: " + e.getMessage());
+//            throw new RuntimeException("Failed to process refund: " + e.getMessage());
+//        }
+//    }
+    
+    
+ // ==================== PAYMENT ====================
+
+    @Override
+    public PaymentOrderResponseDTO createPaymentOrder(Long orderId) {
+        Order order = orderRepo.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        if (order.getStatus() == Order.OrderStatus.CANCELLED)
+            throw new BadRequestException("Cannot pay for cancelled order");
+        if (order.getPaymentStatus() == Order.PaymentStatus.COMPLETED)
+            throw new BadRequestException("Payment already completed");
+
+        if ("dummy".equals(paymentMode)) {
+            // ========== DUMMY MODE ==========
+            String fakeOrderId = "order_dummy_" + System.currentTimeMillis();
+            order.setRazorpayOrderId(fakeOrderId);
+            orderRepo.save(order);
+
+            System.out.println("========================================");
+            System.out.println("  [DUMMY] PAYMENT ORDER CREATED");
+            System.out.println("  Order ID: " + orderId);
+            System.out.println("  Fake Razorpay ID: " + fakeOrderId);
+            System.out.println("  Amount: " + order.getTotalAmount());
+            System.out.println("========================================");
+
+            return PaymentOrderResponseDTO.builder()
+                    .razorpayOrderId(fakeOrderId)
+                    .amount(order.getTotalAmount())
+                    .currency("INR")
+                    .key("rzp_test_dummy_key")
+                    .orderStatus("created")
+                    .orderId(order.getId())
+                    .build();
+        }
+
+        // ========== REAL RAZORPAY MODE ==========
+        com.razorpay.Order rzpOrder = paymentService.createRazorpayOrder(orderId, order.getTotalAmount());
+        order.setRazorpayOrderId(rzpOrder.get("id").toString());
+        orderRepo.save(order);
+
+        return PaymentOrderResponseDTO.builder()
+                .razorpayOrderId(rzpOrder.get("id").toString())
+                .amount(order.getTotalAmount())
+                .currency("INR")
+                .key(paymentService.getKeyId())
+                .orderStatus(rzpOrder.get("status").toString())
+                .orderId(order.getId())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public OrderResponseDTO verifyPayment(Long orderId, PaymentVerifyRequestDTO request) {
+        Order order = orderRepo.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        if (order.getPaymentStatus() == Order.PaymentStatus.COMPLETED)
+            throw new BadRequestException("Payment already completed");
+
+        if ("dummy".equals(paymentMode)) {
+            // ========== DUMMY MODE ==========
+            order.setRazorpayPaymentId("pay_dummy_" + System.currentTimeMillis());
+            order.setRazorpaySignature("dummy_sig_" + System.currentTimeMillis());
+            order.setPaymentStatus(Order.PaymentStatus.COMPLETED);
+            order.setStatus(Order.OrderStatus.CONFIRMED);
+            order = orderRepo.save(order);
+
+            System.out.println("========================================");
+            System.out.println("  [DUMMY] PAYMENT VERIFIED & ORDER CONFIRMED");
+            System.out.println("  Order: " + orderId);
+            System.out.println("========================================");
+
+            return convertToDTO(order);
+        }
+
+        // ========== REAL RAZORPAY MODE ==========
+        boolean isValid = paymentService.verifyPayment(
+                request.getRazorpayOrderId(),
+                request.getRazorpayPaymentId(),
+                request.getRazorpaySignature());
+
+        if (!isValid) {
+            order.setPaymentStatus(Order.PaymentStatus.FAILED);
+            orderRepo.save(order);
+            throw new BadRequestException("Payment verification failed! Invalid signature.");
+        }
+
+        order.setRazorpayPaymentId(request.getRazorpayPaymentId());
+        order.setRazorpaySignature(request.getRazorpaySignature());
+        order.setPaymentStatus(Order.PaymentStatus.COMPLETED);
+        order.setStatus(Order.OrderStatus.CONFIRMED);
+        order = orderRepo.save(order);
+
+        System.out.println("========================================");
+        System.out.println("  PAYMENT VERIFIED & ORDER CONFIRMED");
+        System.out.println("  Order: " + orderId + " | Payment: " + request.getRazorpayPaymentId());
+        System.out.println("========================================");
+
+        return convertToDTO(order);
+    }
+    
+    
+    
+    
+    
+    
+
+    public String getKeyId() {
+        return keyId;
+    }
+}

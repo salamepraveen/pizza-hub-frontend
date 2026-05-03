@@ -1,0 +1,227 @@
+package com.prav.pizza.controller;
+import jakarta.validation.constraints.*;
+import jakarta.validation.Valid;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.prav.pizza.dto.PizzaDTO;
+import com.prav.pizza.dto.PizzaSizeDTO;
+import com.prav.pizza.dto.ToppingDTO;
+import com.prav.pizza.service.PizzaService;
+
+@RestController
+@RequestMapping("/pizzas")
+public class PizzaController {
+
+    @Autowired
+    private PizzaService service;
+
+   
+   
+  
+    // for admin to manage pizza
+    @PostMapping
+    public ResponseEntity<Map<String, Object>> createPizza(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId,
+            @RequestBody Map<String, Object> body) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        if (!"ADMIN".equals(role)) {
+            response.put("error", "Only ADMIN can add pizzas.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        try {
+            PizzaDTO pizza = service.createPizza(restaurantId, body);
+            response.put("message", "Pizza created!");
+            response.put("pizza", pizza);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> updatePizza(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId,
+            @RequestBody Map<String, Object> body) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        if (!"ADMIN".equals(role)) {
+            response.put("error", "Only ADMIN can update pizzas.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        try {
+            PizzaDTO pizza = service.updatePizza(id, restaurantId, body);
+            response.put("message", "Pizza updated!");
+            response.put("pizza", pizza);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> deletePizza(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        if (!"ADMIN".equals(role)) {
+            response.put("error", "Only ADMIN can delete pizzas.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        try {
+            service.deletePizza(id, restaurantId);
+            response.put("message", "Pizza deleted!");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+    }
+
+    
+   
+   
+    // EVERYONE can Browse Menu
+    @GetMapping
+    public ResponseEntity<List<PizzaDTO>> getAllPizzas() {
+        return ResponseEntity.ok(service.getAllPizzas());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> getPizzaById(@PathVariable Long id) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            response.put("pizza", service.getPizzaById(id));
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        }
+    }
+
+    @GetMapping("/restaurant/{restaurantId}")
+    public ResponseEntity<List<PizzaDTO>> getPizzasByRestaurant(@PathVariable Long restaurantId) {
+        return ResponseEntity.ok(service.getPizzasByRestaurant(restaurantId));
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<PizzaDTO>> searchPizzas(@RequestParam String keyword) {
+        return ResponseEntity.ok(service.searchPizzas(keyword));
+    }
+
+    @GetMapping("/vegetarian")
+    public ResponseEntity<List<PizzaDTO>> getVegetarianPizzas() {
+        return ResponseEntity.ok(service.getVegetarianPizzas());
+    }
+
+   
+
+ 
+    // ADMIN - Manage Sizes
+    @PostMapping("/{id}/sizes")
+    public ResponseEntity<Map<String, Object>> addSize(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId,
+            @RequestBody Map<String, Object> body) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        if (!"ADMIN".equals(role)) {
+            response.put("error", "Only ADMIN can add sizes.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        try {
+            PizzaSizeDTO size = service.addSize(id, restaurantId, body);
+            response.put("message", "Size added!");
+            response.put("size", size);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+    }
+
+   
+   
+  
+    // ADMIN - Manage Toppings
+    @PostMapping("/toppings")
+    public ResponseEntity<Map<String, Object>> createTopping( @Valid
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId,
+            @RequestBody Map<String, Object> body) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        if (!"ADMIN".equals(role)) {
+            response.put("error", "Only ADMIN can add toppings.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        try {
+            ToppingDTO topping = service.createTopping(restaurantId, body);
+            response.put("message", "Topping created!");
+            response.put("topping", topping);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+    }
+
+    @GetMapping("/toppings")
+    public ResponseEntity<List<ToppingDTO>> getAllToppings() {
+        return ResponseEntity.ok(service.getAllToppings());
+    }
+
+    @GetMapping("/toppings/restaurant/{restaurantId}")
+    public ResponseEntity<List<ToppingDTO>> getToppingsByRestaurant(@PathVariable Long restaurantId) {
+        return ResponseEntity.ok(service.getToppingsByRestaurant(restaurantId));
+    }
+
+    @DeleteMapping("/toppings/{id}")
+    public ResponseEntity<Map<String, Object>> deleteTopping(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        if (!"ADMIN".equals(role)) {
+            response.put("error", "Only ADMIN can delete toppings.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        try {
+            service.deleteTopping(id, restaurantId);
+            response.put("message", "Topping deleted!");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+    }
+}
+

@@ -1,0 +1,52 @@
+package com.prav.auth_service.dto;
+
+import java.util.List;
+
+public class UserDTO {
+	
+	private Long id;
+    private String username;
+    private String password;
+    private String role;
+    private Long assignedRestaurantId;
+    private List<Long> knownRestaurantIds;
+	
+    public Long getId() {
+		return id;
+	}
+	public void setId(Long id) {
+		this.id = id;
+	}
+	public String getUsername() {
+		return username;
+	}
+	public void setUsername(String username) {
+		this.username = username;
+	}
+	public String getPassword() {
+		return password;
+	}
+	public void setPassword(String password) {
+		this.password = password;
+	}
+	public String getRole() {
+		return role;
+	}
+	public void setRole(String role) {
+		this.role = role;
+	}
+	public Long getAssignedRestaurantId() {
+		return assignedRestaurantId;
+	}
+	public void setAssignedRestaurantId(Long assignedRestaurantId) {
+		this.assignedRestaurantId = assignedRestaurantId;
+	}
+	public List<Long> getKnownRestaurantIds() {
+		return knownRestaurantIds;
+	}
+	public void setKnownRestaurantIds(List<Long> knownRestaurantIds) {
+		this.knownRestaurantIds = knownRestaurantIds;
+	}
+	
+    
+}

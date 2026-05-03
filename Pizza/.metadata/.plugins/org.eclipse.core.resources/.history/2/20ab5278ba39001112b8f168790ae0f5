@@ -1,0 +1,220 @@
+package com.prav.pizza.controller;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.prav.pizza.dto.PizzaDTO;
+import com.prav.pizza.dto.PizzaSizeDTO;
+import com.prav.pizza.dto.ToppingDTO;
+import com.prav.pizza.exception.AccessDeniedException;
+import com.prav.pizza.service.PizzaService;
+import com.prav.common.dto.ApiResponse;
+
+import jakarta.validation.Valid;
+
+@RestController
+@RequestMapping("/pizzas")
+public class PizzaController {
+
+    @Autowired
+    private PizzaService service;
+
+    // ==================== ADMIN — Manage Pizzas ====================
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<PizzaDTO>> createPizza(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId,
+            @RequestBody Map<String, Object> body) {
+
+        if (!"ADMIN".equals(role)) {
+            throw new AccessDeniedException("Only ADMIN can add pizzas");
+        }
+
+        PizzaDTO pizza = service.createPizza(restaurantId, body);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.<PizzaDTO>builder()
+                        .success(true)
+                        .message("Pizza created successfully")
+                        .data(pizza)
+                        .build());
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<PizzaDTO>> updatePizza(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId,
+            @RequestBody Map<String, Object> body) {
+
+        if (!"ADMIN".equals(role)) {
+            throw new AccessDeniedException("Only ADMIN can update pizzas");
+        }
+
+        PizzaDTO pizza = service.updatePizza(id, restaurantId, body);
+        return ResponseEntity.ok(
+                ApiResponse.<PizzaDTO>builder()
+                        .success(true)
+                        .message("Pizza updated successfully")
+                        .data(pizza)
+                        .build());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deletePizza(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId) {
+
+        if (!"ADMIN".equals(role)) {
+            throw new AccessDeniedException("Only ADMIN can delete pizzas");
+        }
+
+        service.deletePizza(id, restaurantId);
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("Pizza deleted successfully")
+                        .build());
+    }
+
+    // ==================== EVERYONE — Browse Menu ====================
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<PizzaDTO>>> getAllPizzas() {
+        return ResponseEntity.ok(
+                ApiResponse.<List<PizzaDTO>>builder()
+                        .success(true)
+                        .message("All pizzas retrieved successfully")
+                        .data(service.getAllPizzas())
+                        .build());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<PizzaDTO>> getPizzaById(@PathVariable Long id) {
+        PizzaDTO pizza = service.getPizzaById(id);
+        return ResponseEntity.ok(
+                ApiResponse.<PizzaDTO>builder()
+                        .success(true)
+                        .message("Pizza retrieved successfully")
+                        .data(pizza)
+                        .build());
+    }
+
+    @GetMapping("/restaurant/{restaurantId}")
+    public ResponseEntity<ApiResponse<List<PizzaDTO>>> getPizzasByRestaurant(@PathVariable Long restaurantId) {
+        return ResponseEntity.ok(
+                ApiResponse.<List<PizzaDTO>>builder()
+                        .success(true)
+                        .message("Restaurant pizzas retrieved successfully")
+                        .data(service.getPizzasByRestaurant(restaurantId))
+                        .build());
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<PizzaDTO>>> searchPizzas(@RequestParam String keyword) {
+        return ResponseEntity.ok(
+                ApiResponse.<List<PizzaDTO>>builder()
+                        .success(true)
+                        .message("Pizza search results retrieved successfully")
+                        .data(service.searchPizzas(keyword))
+                        .build());
+    }
+
+    @GetMapping("/vegetarian")
+    public ResponseEntity<ApiResponse<List<PizzaDTO>>> getVegetarianPizzas() {
+        return ResponseEntity.ok(
+                ApiResponse.<List<PizzaDTO>>builder()
+                        .success(true)
+                        .message("Vegetarian pizzas retrieved successfully")
+                        .data(service.getVegetarianPizzas())
+                        .build());
+    }
+
+    // ==================== ADMIN — Manage Sizes ====================
+
+    @PostMapping("/{id}/sizes")
+    public ResponseEntity<ApiResponse<PizzaSizeDTO>> addSize(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId,
+            @RequestBody Map<String, Object> body) {
+
+        if (!"ADMIN".equals(role)) {
+            throw new AccessDeniedException("Only ADMIN can add sizes");
+        }
+
+        PizzaSizeDTO size = service.addSize(id, restaurantId, body);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.<PizzaSizeDTO>builder()
+                        .success(true)
+                        .message("Size added successfully")
+                        .data(size)
+                        .build());
+    }
+
+    // ==================== ADMIN — Manage Toppings ====================
+
+    @PostMapping("/toppings")
+    public ResponseEntity<ApiResponse<ToppingDTO>> createTopping(
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId,
+            @RequestBody Map<String, Object> body) {
+
+        if (!"ADMIN".equals(role)) {
+            throw new AccessDeniedException("Only ADMIN can add toppings");
+        }
+
+        ToppingDTO topping = service.createTopping(restaurantId, body);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.<ToppingDTO>builder()
+                        .success(true)
+                        .message("Topping created successfully")
+                        .data(topping)
+                        .build());
+    }
+
+    @GetMapping("/toppings")
+    public ResponseEntity<ApiResponse<List<ToppingDTO>>> getAllToppings() {
+        return ResponseEntity.ok(
+                ApiResponse.<List<ToppingDTO>>builder()
+                        .success(true)
+                        .message("All toppings retrieved successfully")
+                        .data(service.getAllToppings())
+                        .build());
+    }
+
+    @GetMapping("/toppings/restaurant/{restaurantId}")
+    public ResponseEntity<ApiResponse<List<ToppingDTO>>> getToppingsByRestaurant(@PathVariable Long restaurantId) {
+        return ResponseEntity.ok(
+                ApiResponse.<List<ToppingDTO>>builder()
+                        .success(true)
+                        .message("Restaurant toppings retrieved successfully")
+                        .data(service.getToppingsByRestaurant(restaurantId))
+                        .build());
+    }
+
+    @DeleteMapping("/toppings/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteTopping(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId) {
+
+        if (!"ADMIN".equals(role)) {
+            throw new AccessDeniedException("Only ADMIN can delete toppings");
+        }
+
+        service.deleteTopping(id, restaurantId);
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("Topping deleted successfully")
+                        .build());
+    }
+}

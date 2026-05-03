@@ -1,0 +1,208 @@
+package com.prav.service;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.prav.entity.OrderItem;
+import com.prav.entity.PizzaOrder;
+import com.prav.repo.OrderItemRepository;
+import com.prav.repo.PizzaOrderRepository;
+
+@Service
+public class ReportService {
+
+    @Autowired
+    private PizzaOrderRepository repo;
+
+    @Autowired
+    private OrderItemRepository itemRepo;
+
+   
+    public Map<String, Object> getRevenueByRestaurant(Long restaurantId) {
+        List<PizzaOrder> orders = repo.findByRestaurantId(restaurantId);
+
+        double totalRevenue = 0;
+        int totalOrders = 0;
+        int pendingOrders = 0;
+        int completedOrders = 0;
+        int cancelledOrders = 0;
+
+        for (PizzaOrder order : orders) {
+            totalRevenue += order.getTotalPrice();
+            totalOrders++;
+            switch (order.getStatus()) {
+                case "PENDING", "PREPARING", "READY": pendingOrders++; break;
+                case "DELIVERED": completedOrders++; break;
+                case "CANCELLED": cancelledOrders++; break;
+            }
+        }
+
+        Map<String, Object> report = new HashMap<>();
+        report.put("restaurantId", restaurantId);
+        report.put("totalRevenue", round(totalRevenue));
+        report.put("totalOrders", totalOrders);
+        report.put("completedOrders", completedOrders);
+        report.put("pendingOrders", pendingOrders);
+        report.put("cancelledOrders", cancelledOrders);
+        report.put("averageOrderValue", totalOrders > 0 ? round(totalRevenue / totalOrders) : 0);
+        return report;
+    }
+
+    public Map<String, Object> getRevenueByDateRange(Long restaurantId,
+            LocalDateTime startDate, LocalDateTime endDate) {
+        List<PizzaOrder> allOrders = repo.findByRestaurantId(restaurantId);
+
+        double totalRevenue = 0;
+        int totalOrders = 0;
+        List<PizzaOrder> filteredOrders = new ArrayList<>();
+
+        for (PizzaOrder order : allOrders) {
+            if (order.getOrderDate() != null
+                    && !order.getOrderDate().isBefore(startDate)
+                    && !order.getOrderDate().isAfter(endDate)
+                    && !"CANCELLED".equals(order.getStatus())) {
+                totalRevenue += order.getTotalPrice();
+                totalOrders++;
+                filteredOrders.add(order);
+            }
+        }
+
+        Map<String, Object> report = new HashMap<>();
+        report.put("restaurantId", restaurantId);
+        report.put("startDate", startDate.toString());
+        report.put("endDate", endDate.toString());
+        report.put("totalRevenue", round(totalRevenue));
+        report.put("totalOrders", totalOrders);
+        report.put("orders", filteredOrders);
+        return report;
+    }
+
+    public List<Map<String, Object>> getDailyRevenue(Long restaurantId, int days) {
+        List<PizzaOrder> orders = repo.findByRestaurantId(restaurantId);
+        Map<String, Double> dailyMap = new HashMap<>();
+        Map<String, Integer> orderCountMap = new HashMap<>();
+
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
+
+        for (PizzaOrder order : orders) {
+            if (order.getOrderDate() != null
+                    && !order.getOrderDate().isBefore(cutoff)
+                    && !"CANCELLED".equals(order.getStatus())) {
+                String date = order.getOrderDate().toLocalDate().toString();
+                dailyMap.put(date, dailyMap.getOrDefault(date, 0.0) + order.getTotalPrice());
+                orderCountMap.put(date, orderCountMap.getOrDefault(date, 0) + 1);
+            }
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map.Entry<String, Double> entry : dailyMap.entrySet()) {
+            Map<String, Object> day = new HashMap<>();
+            day.put("date", entry.getKey());
+            day.put("revenue", round(entry.getValue()));
+            day.put("orders", orderCountMap.get(entry.getKey()));
+            result.add(day);
+        }
+
+        result.sort((a, b) -> ((String) a.get("date")).compareTo((String) b.get("date")));
+        return result;
+    }
+
+   
+    public List<Map<String, Object>> getPopularPizzas(Long restaurantId) {
+        List<PizzaOrder> orders = repo.findByRestaurantId(restaurantId);
+
+        Map<String, Integer> pizzaCount = new HashMap<>();
+        Map<String, Double> pizzaRevenue = new HashMap<>();
+
+        for (PizzaOrder order : orders) {
+            if (!"CANCELLED".equals(order.getStatus())) {
+                List<OrderItem> items = itemRepo.findByOrderId(order.getId());
+                for (OrderItem item : items) {
+                    String name = item.getPizzaName();
+                    if (name != null) {
+                        pizzaCount.put(name, pizzaCount.getOrDefault(name, 0) + item.getQuantity());
+                        pizzaRevenue.put(name, pizzaRevenue.getOrDefault(name, 0.0) + (item.getPrice() * item.getQuantity()));
+                    }
+                }
+            }
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map.Entry<String, Integer> entry : pizzaCount.entrySet()) {
+            Map<String, Object> pizza = new HashMap<>();
+            pizza.put("pizzaName", entry.getKey());
+            pizza.put("totalQuantitySold", entry.getValue());
+            pizza.put("totalRevenue", round(pizzaRevenue.get(entry.getKey())));
+            result.add(pizza);
+        }
+
+        result.sort((a, b) -> (Integer) b.get("totalQuantitySold") - (Integer) a.get("totalQuantitySold"));
+        return result;
+    }
+
+  
+    public List<Map<String, Object>> getTopCustomers(Long restaurantId) {
+        List<PizzaOrder> orders = repo.findByRestaurantId(restaurantId);
+
+        Map<Long, Double> customerSpending = new HashMap<>();
+        Map<Long, Integer> customerOrderCount = new HashMap<>();
+
+        for (PizzaOrder order : orders) {
+            if (order.getUserId() != null && !"CANCELLED".equals(order.getStatus())) {
+                customerSpending.put(order.getUserId(),
+                        customerSpending.getOrDefault(order.getUserId(), 0.0) + order.getTotalPrice());
+                customerOrderCount.put(order.getUserId(),
+                        customerOrderCount.getOrDefault(order.getUserId(), 0) + 1);
+            }
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map.Entry<Long, Double> entry : customerSpending.entrySet()) {
+            Map<String, Object> customer = new HashMap<>();
+            customer.put("userId", entry.getKey());
+            customer.put("totalSpent", round(entry.getValue()));
+            customer.put("totalOrders", customerOrderCount.get(entry.getKey()));
+            result.add(customer);
+        }
+
+        result.sort((a, b) -> Double.compare((Double) b.get("totalSpent"), (Double) a.get("totalSpent")));
+        return result;
+    }
+
+
+
+    public Map<String, Object> getOrderStatusSummary(Long restaurantId) {
+        List<PizzaOrder> orders = repo.findByRestaurantId(restaurantId);
+
+        int pending = 0, preparing = 0, ready = 0, delivered = 0, cancelled = 0;
+
+        for (PizzaOrder order : orders) {
+            switch (order.getStatus()) {
+                case "PENDING": pending++; break;
+                case "PREPARING": preparing++; break;
+                case "READY": ready++; break;
+                case "DELIVERED": delivered++; break;
+                case "CANCELLED": cancelled++; break;
+            }
+        }
+
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("pending", pending);
+        summary.put("preparing", preparing);
+        summary.put("ready", ready);
+        summary.put("delivered", delivered);
+        summary.put("cancelled", cancelled);
+        summary.put("total", orders.size());
+        return summary;
+    }
+
+    private double round(double value) {
+        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+}

@@ -1,0 +1,234 @@
+package com.prav.order;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
+
+import com.prav.order.model.Order;
+import com.prav.order.model.OrderItem;
+import com.prav.order.repository.OrderItemRepository;
+import com.prav.order.repository.OrderRepository;
+import com.prav.order.service.ReportService;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+public class ReportServiceTest {
+
+    @Mock
+    private OrderRepository repo;
+
+    @Mock
+    private OrderItemRepository itemRepo;
+
+    @InjectMocks
+    private ReportService reportService;
+
+    private List<Order> sampleOrders;
+    private List<OrderItem> sampleItems;
+
+    @BeforeEach
+    void setUp() {
+        sampleOrders = new ArrayList<>();
+
+        Order order1 = new Order();
+        order1.setId(1L);
+        order1.setRestaurantId(100L);
+        order1.setUserId(10L);
+        order1.setTotalAmount(BigDecimal.valueOf(50.0));
+        order1.setStatus(Order.OrderStatus.DELIVERED);
+        order1.setPaymentStatus(Order.PaymentStatus.COMPLETED);
+        order1.setCreatedAt(LocalDateTime.now().minusDays(1));
+        sampleOrders.add(order1);
+
+        Order order2 = new Order();
+        order2.setId(2L);
+        order2.setRestaurantId(100L);
+        order2.setUserId(11L);
+        order2.setTotalAmount(BigDecimal.valueOf(30.0));
+        order2.setStatus(Order.OrderStatus.CANCELLED);
+        order2.setPaymentStatus(Order.PaymentStatus.PENDING);
+        order2.setCreatedAt(LocalDateTime.now());
+        sampleOrders.add(order2);
+
+        Order order3 = new Order();
+        order3.setId(3L);
+        order3.setRestaurantId(100L);
+        order3.setUserId(10L);
+        order3.setTotalAmount(BigDecimal.valueOf(20.0));
+        order3.setStatus(Order.OrderStatus.PREPARING);
+        order3.setPaymentStatus(Order.PaymentStatus.PENDING);
+        order3.setCreatedAt(LocalDateTime.now());
+        sampleOrders.add(order3);
+
+        sampleItems = new ArrayList<>();
+
+        OrderItem item1 = new OrderItem();
+        item1.setId(1L);
+        item1.setOrderId(1L);
+        item1.setPizzaName("Margherita");
+        item1.setQuantity(2);
+        item1.setPrice(15.0);
+        sampleItems.add(item1);
+
+        OrderItem item2 = new OrderItem();
+        item2.setId(2L);
+        item2.setOrderId(1L);
+        item2.setPizzaName("Pepperoni");
+        item2.setQuantity(1);
+        item2.setPrice(20.0);
+        sampleItems.add(item2);
+    }
+
+    @Test
+    void getRevenueByRestaurant_returnsCorrectSummary() {
+        when(repo.findByRestaurantId(100L)).thenReturn(sampleOrders);
+
+        Map<String, Object> result = reportService.getRevenueByRestaurant(100L);
+
+        assertEquals(100L, result.get("restaurantId"));
+        assertEquals(100.0, ((Number) result.get("totalRevenue")).doubleValue(), 0.01);
+        assertEquals(3, ((Number) result.get("totalOrders")).intValue());
+        assertEquals(1, ((Number) result.get("completedOrders")).intValue());
+        assertEquals(1, ((Number) result.get("cancelledOrders")).intValue());
+    }
+
+    @Test
+    void getRevenueByRestaurant_emptyOrders() {
+        when(repo.findByRestaurantId(100L)).thenReturn(new ArrayList<>());
+
+        Map<String, Object> result = reportService.getRevenueByRestaurant(100L);
+
+        assertEquals(0, ((Number) result.get("totalRevenue")).doubleValue(), 0.01);
+        assertEquals(0, ((Number) result.get("totalOrders")).intValue());
+        assertEquals(0, ((Number) result.get("completedOrders")).intValue());
+    }
+
+    @Test
+    void getRevenueByDateRange_filtersCorrectly() {
+        when(repo.findByRestaurantId(100L)).thenReturn(sampleOrders);
+
+        LocalDateTime start = LocalDateTime.now().minusDays(2);
+        LocalDateTime end = LocalDateTime.now().plusDays(1);
+
+        Map<String, Object> result = reportService.getRevenueByDateRange(100L, start, end);
+
+        assertEquals(70.0, ((Number) result.get("totalRevenue")).doubleValue(), 0.01);
+        assertEquals(2, ((Number) result.get("totalOrders")).intValue());
+    }
+
+    @Test
+    void getRevenueByDateRange_noOrdersInRange() {
+        when(repo.findByRestaurantId(100L)).thenReturn(sampleOrders);
+
+        LocalDateTime start = LocalDateTime.now().plusDays(10);
+        LocalDateTime end = LocalDateTime.now().plusDays(20);
+
+        Map<String, Object> result = reportService.getRevenueByDateRange(100L, start, end);
+
+        assertEquals(0, ((Number) result.get("totalRevenue")).doubleValue(), 0.01);
+        assertEquals(0, ((Number) result.get("totalOrders")).intValue());
+    }
+
+    @Test
+    void getDailyRevenue_returnsGroupedByDate() {
+        when(repo.findByRestaurantId(100L)).thenReturn(sampleOrders);
+
+        List<Map<String, Object>> result = reportService.getDailyRevenue(100L, 7);
+
+        assertFalse(result.isEmpty());
+
+        double totalRevenue = 0;
+        int totalOrders = 0;
+        for (Map<String, Object> day : result) {
+            totalRevenue += ((Number) day.get("revenue")).doubleValue();
+            totalOrders += ((Number) day.get("orders")).intValue();
+        }
+        assertEquals(70.0, totalRevenue, 0.01);
+        assertEquals(2, totalOrders);
+    }
+
+    @Test
+    void getDailyRevenue_customDays() {
+        when(repo.findByRestaurantId(100L)).thenReturn(sampleOrders);
+
+        List<Map<String, Object>> result = reportService.getDailyRevenue(100L, 0);
+
+        assertTrue(result.isEmpty() || result.size() >= 0);
+    }
+
+    @Test
+    void getPopularPizzas_returnsSortedByQuantity() {
+        when(repo.findByRestaurantId(100L)).thenReturn(sampleOrders);
+        when(itemRepo.findByOrderId(1L)).thenReturn(sampleItems);
+        when(itemRepo.findByOrderId(3L)).thenReturn(new ArrayList<>());
+
+        List<Map<String, Object>> result = reportService.getPopularPizzas(100L);
+
+        assertEquals(2, result.size());
+        assertEquals("Margherita", result.get(0).get("pizzaName"));
+        assertEquals(2, ((Number) result.get(0).get("totalQuantitySold")).intValue());
+        assertEquals("Pepperoni", result.get(1).get("pizzaName"));
+        assertEquals(1, ((Number) result.get(1).get("totalQuantitySold")).intValue());
+    }
+
+    @Test
+    void getPopularPizzas_emptyOrders() {
+        when(repo.findByRestaurantId(100L)).thenReturn(new ArrayList<>());
+
+        List<Map<String, Object>> result = reportService.getPopularPizzas(100L);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getTopCustomers_sortedBySpending() {
+        when(repo.findByRestaurantId(100L)).thenReturn(sampleOrders);
+
+        List<Map<String, Object>> result = reportService.getTopCustomers(100L);
+
+        assertEquals(1, result.size());
+        assertEquals(10L, ((Number) result.get(0).get("userId")).longValue());
+        assertEquals(70.0, ((Number) result.get(0).get("totalSpent")).doubleValue(), 0.01);
+        assertEquals(2, ((Number) result.get(0).get("totalOrders")).intValue());
+    }
+
+    @Test
+    void getTopCustomers_emptyOrders() {
+        when(repo.findByRestaurantId(100L)).thenReturn(new ArrayList<>());
+
+        List<Map<String, Object>> result = reportService.getTopCustomers(100L);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getOrderStatusSummary_returnsAllStatuses() {
+        when(repo.findByRestaurantId(100L)).thenReturn(sampleOrders);
+
+        Map<String, Object> result = reportService.getOrderStatusSummary(100L);
+
+        assertEquals(1, ((Number) result.get("preparing")).intValue());
+        assertEquals(1, ((Number) result.get("delivered")).intValue());
+        assertEquals(1, ((Number) result.get("cancelled")).intValue());
+        assertEquals(3, ((Number) result.get("total")).intValue());
+    }
+
+    @Test
+    void getOrderStatusSummary_emptyOrders() {
+        when(repo.findByRestaurantId(100L)).thenReturn(new ArrayList<>());
+
+        Map<String, Object> result = reportService.getOrderStatusSummary(100L);
+
+        assertEquals(0, ((Number) result.get("total")).intValue());
+        assertEquals(0, ((Number) result.get("delivered")).intValue());
+    }
+}

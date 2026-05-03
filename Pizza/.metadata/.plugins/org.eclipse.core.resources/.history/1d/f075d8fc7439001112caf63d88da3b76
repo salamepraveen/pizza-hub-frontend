@@ -1,0 +1,205 @@
+package com.prav.user.controller;
+
+
+import java.util.HashMap;
+import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.prav.user.dto.PromoteRequestDTO;
+import com.prav.user.dto.RestaurantCreateRequestDTO;
+import com.prav.user.model.Restaurant;
+import com.prav.user.model.User;
+import com.prav.user.repository.RestaurantRepository;
+import com.prav.user.repository.UserRepository;
+import com.prav.user.service.UserService;
+import com.prav.user.dto.*;
+
+@RestController
+@RequestMapping("/users")
+public class UserController {
+
+    @Autowired
+    private UserService service;
+
+    @Autowired
+    private UserRepository userRepo;
+
+    @Autowired
+    private RestaurantRepository restaurantRepo;
+
+   
+    
+ // Auth Service via Feign
+    @PostMapping("/internal")
+    public ResponseEntity<User> createUser(@Valid @RequestBody UserDTO request) {
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(request.getPassword());
+        User savedUser = service.createUser(user);
+        return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
+    }
+    
+    
+    @GetMapping("/username/{username}")
+    public ResponseEntity<?> getByUsername(@PathVariable String username) {
+        return userRepo.findByUsername(username)
+                .map(user -> ResponseEntity.ok(user))
+                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+    }
+
+    
+    
+
+    @GetMapping("/internal/{id}")
+    public ResponseEntity<?> getUserById(@PathVariable Long id) {
+        return userRepo.findById(id)
+                .map(user -> ResponseEntity.ok(user))
+                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+    }
+   
+    
+    
+
+ // USER creates restaurant (joh bhi rest banyega woh becomes ADMIN)
+    @PostMapping("/restaurant")
+    public ResponseEntity<Map<String, Object>> createRestaurant(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody RestaurantCreateRequestDTO request) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        if (!"USER".equals(role)) {
+            response.put("error", "Only USER can create a restaurant.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+
+        User user = userRepo.findById(userId).orElse(null);
+
+        if (user == null) {
+            response.put("error", "User not found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        }
+
+        //  DTO to entity
+        Restaurant restaurant = new Restaurant();
+        restaurant.setName(request.getName());
+        
+        restaurant.setOwnerId(userId);
+        Restaurant saved = restaurantRepo.save(restaurant);
+
+        user.setRole("ADMIN");
+        user.setAssignedRestaurantId(saved.getId());
+        user.getKnownRestaurantIds().clear();
+        user.getKnownRestaurantIds().add(saved.getId());
+        userRepo.save(user);
+
+        service.notifyNewRestaurant(saved.getId());
+
+        response.put("message", "Restaurant created!");
+        response.put("restaurantId", saved.getId());
+        response.put("role", "ADMIN");
+        return ResponseEntity.ok(response);
+    }
+
+        @GetMapping("/restaurants")
+        public ResponseEntity<Map<String, Object>> getMyRestaurants(
+                @RequestHeader("X-User-Id") Long userId) {
+
+            Map<String, Object> response = new HashMap<>();
+            User user = userRepo.findById(userId).orElse(null);
+
+            if (user == null) {
+                response.put("error", "User not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+
+            response.put("role", user.getRole());
+            response.put("assignedRestaurantId", user.getAssignedRestaurantId());
+            response.put("knownRestaurantIds", user.getKnownRestaurantIds());
+            return ResponseEntity.ok(response);
+        }
+
+  
+
+        @GetMapping("/restaurant/users")
+        public ResponseEntity<Map<String, Object>> getUsers(
+                @RequestHeader("X-User-Id") Long userId,
+                @RequestHeader("X-Restaurant-Id") Long restaurantId) {
+
+            Map<String, Object> response = new HashMap<>();
+            User requestor = userRepo.findById(userId).orElse(null);
+
+            if (requestor == null) {
+                response.put("error", "User not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+
+            Long targetRestaurantId = requestor.getAssignedRestaurantId();
+            if (targetRestaurantId == null || !targetRestaurantId.equals(restaurantId)) {
+                response.put("error", "Access Denied.");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+
+            List<User> users = userRepo.findByAssignedRestaurantId(restaurantId);
+            response.put("users", users);
+            return ResponseEntity.ok(response);
+        }
+
+  
+    // PROMOTE USER-ADMIN ONLY
+        @PutMapping("/promote/{userId}")
+        public ResponseEntity<Map<String, String>> promote(
+                @PathVariable Long userId,
+                @RequestHeader("X-User-Id") Long adminId,
+                @RequestHeader("X-User-Role") String adminRole,
+                @RequestHeader("X-Restaurant-Id") Long adminRestaurantId,
+                @Valid @RequestBody PromoteRequestDTO request) {
+
+            Map<String, String> response = new HashMap<>();
+
+            if (!"ADMIN".equals(adminRole)) {
+                response.put("error", "Admin privileges required.");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+
+            try {
+                User promoted = service.promoteUser(userId, adminRestaurantId, request.getRole());
+                response.put("message", promoted.getUsername() + " is now " + request.getRole().toUpperCase());
+                return ResponseEntity.ok(response);
+            } catch (RuntimeException e) {
+                response.put("error", e.getMessage());
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        }
+  
+    // DEMOTE  -ADMIN ONLY  
+        @PutMapping("/demote/{userId}")
+        public ResponseEntity<Map<String, String>> demote(
+                @PathVariable Long userId,
+                @RequestHeader("X-User-Id") Long adminId,
+                @RequestHeader("X-User-Role") String adminRole,
+                @RequestHeader("X-Restaurant-Id") Long adminRestaurantId) {
+
+            Map<String, String> response = new HashMap<>();
+
+            if (!"ADMIN".equals(adminRole)) {
+                response.put("error", "Admin privileges required.");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+
+            try {
+                User demoted = service.demoteToUser(userId);
+                response.put("message", demoted.getUsername() + " is now USER");
+                return ResponseEntity.ok(response);
+            } catch (RuntimeException e) {
+                response.put("error", e.getMessage());
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        }
+    }

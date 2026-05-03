@@ -1,0 +1,106 @@
+<div class="orders-page">
+  <div class="page-header">
+    <div><h2>Orders Management</h2><p class="subtitle">{{ orders.length }} total orders</p></div>
+  </div>
+  
+  <div class="tabs-container" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+    <button class="tab-btn" [ngStyle]="{'background': currentTab === 'ACTIVE' ? '#e94560' : 'none', 'color': currentTab === 'ACTIVE' ? '#fff' : '#888', 'border': 'none', 'padding': '8px 16px', 'border-radius': '6px', 'cursor': 'pointer', 'font-weight': '600'}" (click)="setTab('ACTIVE')">
+      Live Orders
+    </button>
+    <button class="tab-btn" [ngStyle]="{'background': currentTab === 'HISTORY' ? '#e94560' : 'none', 'color': currentTab === 'HISTORY' ? '#fff' : '#888', 'border': 'none', 'padding': '8px 16px', 'border-radius': '6px', 'cursor': 'pointer', 'font-weight': '600'}" (click)="setTab('HISTORY')">
+      Order History
+    </button>
+  </div>
+
+  <div class="filters">
+    <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="Search by Order ID or User ID..." class="search-input" />
+    <select [(ngModel)]="selectedStatus" (ngModelChange)="onFilterChange()" class="filter-select">
+      <option value="ALL">All Status</option>
+      <ng-container *ngIf="currentTab === 'ACTIVE'">
+        <option *ngFor="let s of ['PLACED','CONFIRMED','PREPARING','OUT_FOR_DELIVERY']" [value]="s">{{ s }}</option>
+      </ng-container>
+      <ng-container *ngIf="currentTab === 'HISTORY'">
+        <option *ngFor="let s of ['DELIVERED','CANCELLED']" [value]="s">{{ s }}</option>
+      </ng-container>
+    </select>
+  </div>
+  <div *ngIf="error" class="error-banner" (click)="error=''" style="cursor:pointer">{{ error }} ✕</div>
+  <div *ngIf="loading" class="loading">Loading orders...</div>
+
+  <div class="card" *ngIf="!loading">
+    <div class="table-container">
+      <table *ngIf="filteredOrders.length > 0; else noOrders">
+        <thead><tr><th>Order ID</th><th>User ID</th><th>Items</th><th>Total</th><th>Status</th><th>Payment</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let order of filteredOrders">
+            <td><strong>#{{ order.id }}</strong></td>
+            <td>{{ userMap ? userMap[order.userId] : 'User ' + order.userId }}</td>
+            <td>{{ order.items?.length || 0 }} items</td>
+            <td><strong>₹{{ order.totalAmount || 0 }}</strong></td>
+            <td><span class="status-badge" [style.background]="getStatusColor(order.status)">{{ order.status }}</span></td>
+            <td><span class="status-badge" [style.background]="getPaymentColor(order.paymentStatus)">{{ order.paymentStatus || 'PENDING' }}</span></td>
+            <td class="actions-cell">
+              <button class="btn-sm btn-view" (click)="viewOrder(order)">View</button>
+              <button class="btn-sm btn-next" *ngIf="getNextAction(order.status)" (click)="updateStatus(order.id, getNextAction(order.status)!.nextStatus)">{{ getNextAction(order.status)!.label }}</button>
+              <button class="btn-sm btn-cancel" *ngIf="order.status !== 'DELIVERED' && order.status !== 'CANCELLED'" (click)="openCancelModal(order)">Cancel</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #noOrders><div class="empty-state"><p>📦 No orders found.</p></div></ng-template>
+    </div>
+  </div>
+
+  <!-- ORDER DETAIL MODAL -->
+  <div *ngIf="showDetailModal && selectedOrder" class="modal-overlay" (click)="closeModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header"><h3>Order #{{ selectedOrder.id }}</h3><button class="btn-close" (click)="closeModal()">✕</button></div>
+      <div class="modal-body">
+        <div class="detail-grid">
+          <div class="detail-item"><span class="label">Customer</span><span class="value">{{ userMap ? userMap[selectedOrder.userId] : 'User ' + selectedOrder.userId }}</span></div>
+          <div class="detail-item"><span class="label">Restaurant</span><span class="value">{{ selectedOrder.restaurantId }}</span></div>
+          <div class="detail-item"><span class="label">Status</span><span class="status-badge" [style.background]="getStatusColor(selectedOrder.status)">{{ selectedOrder.status }}</span></div>
+          <div class="detail-item"><span class="label">Payment</span><span class="status-badge" [style.background]="getPaymentColor(selectedOrder.paymentStatus)">{{ selectedOrder.paymentStatus || 'PENDING' }}</span></div>
+          <div class="detail-item"><span class="label">Total</span><span class="value" style="font-weight:700;color:#e94560">₹{{ selectedOrder.totalAmount || 0 }}</span></div>
+          <div class="detail-item"><span class="label">Created</span><span class="value">{{ selectedOrder.createdAt || '-' }}</span></div>
+          <div class="detail-item" *ngIf="selectedOrder.refundAmount"><span class="label">Refund</span><span class="value" style="color:#e67e22">₹{{ selectedOrder.refundAmount }}</span></div>
+          <div class="detail-item" *ngIf="selectedOrder.cancellationReason"><span class="label">Cancel Reason</span><span class="value">{{ selectedOrder.cancellationReason }}</span></div>
+        </div>
+        <h4 style="margin:20px 0 10px;color:#1a1a2e">Order Items</h4>
+        <div class="items-list" *ngIf="selectedOrder.items && selectedOrder.items.length > 0; else noItems">
+          <div class="order-item"><span class="item-head">Pizza</span><span class="item-head">Qty</span><span class="item-head">Price</span><span class="item-head">Total</span></div>
+          <div *ngFor="let item of selectedOrder.items" class="order-item" style="display:flex; flex-direction:column; padding-bottom:10px; border-bottom:1px solid #eee;">
+            <div style="display:flex; justify-content:space-between; width:100%;">
+              <span>{{ item.pizzaName || 'Item' }} <small>({{ item.size || 'Regular' }})</small></span>
+              <span>{{ item.quantity }}</span>
+              <span>₹{{ item.price }}</span>
+              <span style="font-weight:600">₹{{ (item.price * item.quantity) | number }}</span>
+            </div>
+            <div *ngIf="item.toppings" style="font-size:0.85em; color:#666; margin-top:4px;">
+              Toppings: {{ item.toppings }}
+            </div>
+          </div>
+        </div>
+        <ng-template #noItems><div class="empty-items">No item details available</div></ng-template>
+      </div>
+    </div>
+  </div>
+
+  <!-- CANCEL MODAL -->
+  <div *ngIf="showCancelModal" class="modal-overlay" (click)="closeCancelModal()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header"><h3>Cancel Order #{{ selectedOrder?.id }}</h3><button class="btn-close" (click)="closeCancelModal()">✕</button></div>
+      <div class="modal-body">
+        <p style="color:#666;margin-bottom:15px">Please provide a reason:</p>
+        <textarea [(ngModel)]="cancelReason" rows="3" class="cancel-textarea" placeholder="e.g. Customer requested cancellation..."></textarea>
+        <p *ngIf="selectedOrder?.paymentStatus === 'COMPLETED'" style="color:#e67e22;font-size:.85rem;margin-top:10px">⚠️ 30% cancellation fee will be deducted.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeCancelModal()">Keep Order</button>
+        <button class="btn-danger" (click)="cancelOrder()">Cancel Order</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+

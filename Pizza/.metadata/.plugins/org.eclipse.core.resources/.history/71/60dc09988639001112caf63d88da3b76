@@ -1,0 +1,318 @@
+package com.prav.order.model;
+
+import com.prav.common.exception.BadRequestException;
+import com.prav.common.exception.ResourceNotFoundException;
+import com.prav.order.client.PizzaClient;
+import com.prav.order.dto.*;
+import com.prav.order.dto.OrderRequestDTO.OrderItemDTO;
+import com.prav.order.model.Order;
+import com.prav.order.model.OrderItem;
+import com.prav.order.repository.OrderItemRepository;
+import com.prav.order.repository.OrderRepository;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Service
+public class OrderServiceImpl implements OrderService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private OrderItemRepository orderItemRepository;
+
+    @Autowired
+    private PizzaClient pizzaClient;
+
+    @Autowired
+    private RazorpayPaymentService paymentService;
+
+    // ==================== CREATE ORDER ====================
+
+    @Override
+    @Transactional
+    public OrderResponseDTO createOrder(OrderRequestDTO orderRequestDTO, Long userId) {
+        log.info("Creating order for user: {}", userId);
+
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        List<OrderItem> orderItems = new ArrayList<>();
+
+        for (OrderItemDTO itemDTO : orderRequestDTO.getItems()) {
+            // Fetch pizza from pizza-service
+            Map<String, Object> pizzaData = pizzaClient.getPizza(itemDTO.getPizzaId());
+            BigDecimal price = new BigDecimal(pizzaData.get("price").toString());
+            String pizzaName = (String) pizzaData.get("name");
+
+            // CHECK PIZZA AVAILABILITY
+            Boolean available = (Boolean) pizzaData.get("available");
+            if (available == null || !available) {
+                throw new BadRequestException("Pizza '" + pizzaName + "' is currently not available!");
+            }
+
+            OrderItem orderItem = new OrderItem();
+            orderItem.setPizzaId(itemDTO.getPizzaId());
+            orderItem.setPizzaName(pizzaName);
+            orderItem.setQuantity(itemDTO.getQuantity());
+            orderItem.setPrice(price);
+            BigDecimal subtotal = price.multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
+            orderItem.setSubtotal(subtotal);
+
+            orderItems.add(orderItem);
+            totalAmount = totalAmount.add(subtotal);
+        }
+
+        Order order = new Order();
+        order.setUserId(userId);
+        order.setRestaurantId(orderRequestDTO.getRestaurantId());
+        order.setTotalAmount(totalAmount);
+        order.setOrderItems(orderItems);
+        // status, paymentStatus set by @PrePersist
+        Order savedOrder = orderRepository.save(order);
+
+        // Create Razorpay payment order
+        com.razorpay.Order razorpayOrder = paymentService.createRazorpayOrder(
+                savedOrder.getId(), savedOrder.getTotalAmount());
+
+        savedOrder.setRazorpayOrderId(razorpayOrder.get("id").toString());
+        savedOrder = orderRepository.save(savedOrder);
+
+        log.info("Order created successfully with id: {}", savedOrder.getId());
+        return convertToDTO(savedOrder);
+    }
+
+    // ==================== PAYMENT ====================
+
+    @Override
+    public PaymentOrderResponseDTO createPaymentOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        if (order.getStatus() == Order.OrderStatus.CANCELLED) {
+            throw new BadRequestException("Cannot create payment for cancelled order");
+        }
+        if (order.getPaymentStatus() == Order.PaymentStatus.COMPLETED) {
+            throw new BadRequestException("Payment already completed for this order");
+        }
+
+        com.razorpay.Order razorpayOrder = paymentService.createRazorpayOrder(
+                orderId, order.getTotalAmount());
+
+        order.setRazorpayOrderId(razorpayOrder.get("id").toString());
+        orderRepository.save(order);
+
+        return PaymentOrderResponseDTO.builder()
+                .razorpayOrderId(razorpayOrder.get("id").toString())
+                .amount(order.getTotalAmount())
+                .currency("INR")
+                .key(paymentService.getKeyId())
+                .orderStatus(razorpayOrder.get("status").toString())
+                .orderId(order.getId())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public OrderResponseDTO verifyAndConfirmPayment(Long orderId, PaymentVerifyRequestDTO request) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        if (order.getPaymentStatus() == Order.PaymentStatus.COMPLETED) {
+            throw new BadRequestException("Payment already completed for this order");
+        }
+
+        // Verify signature
+        boolean isValid = paymentService.verifyPayment(
+                request.getRazorpayOrderId(),
+                request.getRazorpayPaymentId(),
+                request.getRazorpaySignature());
+
+        if (!isValid) {
+            order.setPaymentStatus(Order.PaymentStatus.FAILED);
+            orderRepository.save(order);
+            throw new BadRequestException("Payment verification failed! Invalid signature.");
+        }
+
+        // Update order with payment details
+        order.setRazorpayPaymentId(request.getRazorpayPaymentId());
+        order.setRazorpaySignature(request.getRazorpaySignature());
+        order.setPaymentStatus(Order.PaymentStatus.COMPLETED);
+        order.setStatus(Order.OrderStatus.CONFIRMED);
+        Order savedOrder = orderRepository.save(order);
+
+        System.out.println("========================================");
+        System.out.println("  PAYMENT VERIFIED & ORDER CONFIRMED");
+        System.out.println("  Order ID: " + orderId);
+        System.out.println("  Payment ID: " + request.getRazorpayPaymentId());
+        System.out.println("  Amount: ₹" + order.getTotalAmount());
+        System.out.println("========================================");
+
+        return convertToDTO(savedOrder);
+    }
+
+    // ==================== CANCEL ORDER ====================
+
+    @Override
+    @Transactional
+    public OrderResponseDTO cancelOrder(Long orderId, Long userId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        // Verify order belongs to user
+        if (!order.getUserId().equals(userId)) {
+            throw new BadRequestException("You can only cancel your own orders");
+        }
+
+        // Check if already cancelled or delivered
+        if (order.getStatus() == Order.OrderStatus.CANCELLED) {
+            throw new BadRequestException("Order is already cancelled");
+        }
+        if (order.getStatus() == Order.OrderStatus.DELIVERED) {
+            throw new BadRequestException("Cannot cancel a delivered order");
+        }
+
+        // Cancel the order
+        order.setStatus(Order.OrderStatus.CANCELLED);
+        order.setCancellationReason(reason);
+
+        // Handle refund based on payment status
+        if (order.getPaymentStatus() == Order.PaymentStatus.COMPLETED
+                && order.getRazorpayPaymentId() != null) {
+            // Payment done → 70% refund
+            System.out.println("  [CANCEL] Payment was completed. Processing 70% refund...");
+            RefundResponseDTO refund = paymentService.processRefund(
+                    order.getId(),
+                    order.getTotalAmount(),
+                    order.getRazorpayPaymentId());
+
+            order.setRefundAmount(refund.getRefundAmount());
+            order.setRefundId(refund.getRefundId());
+            order.setPaymentStatus(Order.PaymentStatus.PARTIALLY_REFUNDED);
+
+            System.out.println("  [CANCEL] Refund processed: ₹" + refund.getRefundAmount());
+        } else {
+            // No payment done → no charge
+            System.out.println("  [CANCEL] No payment done. No refund needed.");
+            order.setPaymentStatus(Order.PaymentStatus.PENDING);
+        }
+
+        Order savedOrder = orderRepository.save(order);
+
+        System.out.println("========================================");
+        System.out.println("  ORDER CANCELLED");
+        System.out.println("  Order ID: " + orderId);
+        System.out.println("  Reason: " + reason);
+        System.out.println("  Refund Amount: ₹" + (savedOrder.getRefundAmount() != null ? savedOrder.getRefundAmount() : "0 (no payment)"));
+        System.out.println("========================================");
+
+        return convertToDTO(savedOrder);
+    }
+
+    // ==================== EXISTING METHODS ====================
+
+    @Override
+    public List<OrderResponseDTO> getAllOrders() {
+        return orderRepository.findAll().stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<OrderResponseDTO> getOrdersByUserId(Long userId) {
+        return orderRepository.findByUserId(userId).stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    public OrderResponseDTO getOrderById(Long id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
+        return convertToDTO(order);
+    }
+
+    @Override
+    public List<OrderResponseDTO> getOrdersByRestaurant(Long restaurantId) {
+        return orderRepository.findByRestaurantId(restaurantId).stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    public OrderResponseDTO updateOrderStatus(Long id, String status) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
+
+        Order.OrderStatus newStatus = Order.OrderStatus.valueOf(status.toUpperCase());
+
+        // Validate status transition
+        validateStatusTransition(order.getStatus(), newStatus);
+
+        order.setStatus(newStatus);
+        Order updatedOrder = orderRepository.save(order);
+        return convertToDTO(updatedOrder);
+    }
+
+    private void validateStatusTransition(Order.OrderStatus current, Order.OrderStatus next) {
+        if (current == Order.OrderStatus.CANCELLED || current == Order.OrderStatus.DELIVERED) {
+            throw new BadRequestException("Cannot change status of " + current + " order");
+        }
+
+        switch (next) {
+            case CONFIRMED:
+                if (current != Order.OrderStatus.PLACED)
+                    throw new BadRequestException("Only PLACED orders can be CONFIRMED");
+                break;
+            case PREPARING:
+                if (current != Order.OrderStatus.CONFIRMED)
+                    throw new BadRequestException("Only CONFIRMED orders can be PREPARING");
+                break;
+            case OUT_FOR_DELIVERY:
+                if (current != Order.OrderStatus.PREPARING)
+                    throw new BadRequestException("Only PREPARING orders can be OUT_FOR_DELIVERY");
+                break;
+            case DELIVERED:
+                if (current != Order.OrderStatus.OUT_FOR_DELIVERY)
+                    throw new BadRequestException("Only OUT_FOR_DELIVERY orders can be DELIVERED");
+                break;
+        }
+    }
+
+    // ==================== CONVERTER ====================
+
+    private OrderResponseDTO convertToDTO(Order order) {
+        List<OrderItemResponseDTO> itemDTOs = order.getOrderItems() != null
+                ? order.getOrderItems().stream()
+                    .map(item -> OrderItemResponseDTO.builder()
+                            .pizzaId(item.getPizzaId())
+                            .pizzaName(item.getPizzaName())
+                            .quantity(item.getQuantity())
+                            .unitPrice(item.getUnitPrice())
+                            .subtotal(item.getSubtotal())
+                            .build())
+                    .collect(Collectors.toList())
+                : new ArrayList<>();
+
+        return OrderResponseDTO.builder()
+                .id(order.getId())
+                .userId(order.getUserId())
+                .restaurantId(order.getRestaurantId())
+                .totalAmount(order.getTotalAmount())
+                .status(order.getStatus())
+                .paymentStatus(order.getPaymentStatus())
+                .razorpayOrderId(order.getRazorpayOrderId())
+                .razorpayPaymentId(order.getRazorpayPaymentId())
+                .refundAmount(order.getRefundAmount())
+                .refundId(order.getRefundId())
+                .cancellationReason(order.getCancellationReason())
+                .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
+                .items(itemDTOs)
+                .build();
+    }
+}

@@ -1,0 +1,42 @@
+<div class="create-restaurant-container">
+  <div class="form-card">
+    <div class="header">
+      <div class="icon">🏪</div>
+      <h2>Create Your Restaurant</h2>
+      <p>Start your own pizza business today and become an ADMIN to manage your menu, staff, and orders.</p>
+    </div>
+
+    <form (ngSubmit)="onSubmit()" #restaurantForm="ngForm">
+      <div class="form-group">
+        <label for="name">Restaurant Name</label>
+        <input 
+          type="text" 
+          id="name" 
+          name="name" 
+          [(ngModel)]="restaurantName" 
+          required 
+          placeholder="e.g. Mario's Pizza"
+          class="form-control"
+          [disabled]="loading || success !== ''">
+      </div>
+
+      <div class="alert error-alert" *ngIf="error">
+        {{ error }}
+      </div>
+      
+      <div class="alert success-alert" *ngIf="success">
+        {{ success }}
+        <p class="small-text">Redirecting to login in a few seconds...</p>
+      </div>
+
+      <button type="submit" class="btn-submit" [disabled]="loading || !restaurantForm.valid || success !== ''">
+        <span *ngIf="!loading">Create Restaurant</span>
+        <span *ngIf="loading">Processing...</span>
+      </button>
+    </form>
+    
+    <div class="back-link">
+      <a routerLink="/customer/home">Back to browsing pizzas</a>
+    </div>
+  </div>
+</div>

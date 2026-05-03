@@ -1,0 +1,280 @@
+package com.prav.pizza;
+
+import com.prav.common.dto.ErrorResponse;
+import com.prav.common.exception.*;
+import com.prav.pizza.dto.ToppingDTO;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class GlobalExceptionHandlerTest {
+
+    private BaseGlobalExceptionHandler handler;
+    private MockHttpServletRequest mockRequest;
+
+    @BeforeEach
+    void setUp() {
+        handler = new BaseGlobalExceptionHandler();
+        mockRequest = new MockHttpServletRequest();
+        mockRequest.setRequestURI("/api/pizzas");
+    }
+
+    // ========== 1. ResourceNotFoundException → 404 ==========
+
+    @Test
+    void handleResourceNotFound_withSimpleName_returns404() {
+        ResourceNotFoundException ex = new ResourceNotFoundException("Pizza not found");
+
+        ResponseEntity<ErrorResponse> response = handler.handleResourceNotFound(ex, mockRequest);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(404, response.getBody().getStatus());
+        assertEquals("Not Found", response.getBody().getError());
+        assertEquals("Pizza not found", response.getBody().getMessage());
+        assertEquals("/api/pizzas", response.getBody().getPath());
+        assertNotNull(response.getBody().getTimestamp());
+    }
+
+    @Test
+    void handleResourceNotFound_withResourceAndField_returns404() {
+        ResourceNotFoundException ex = new ResourceNotFoundException("Pizza", "id", 99);
+
+        ResponseEntity<ErrorResponse> response = handler.handleResourceNotFound(ex, mockRequest);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertTrue(response.getBody().getMessage().contains("Pizza not found with id: '99'"));
+    }
+
+    // ========== 2. UnauthorizedException → 401 ==========
+
+    @Test
+    void handleUnauthorized_returns401() {
+        UnauthorizedException ex = new UnauthorizedException("Invalid or expired token");
+
+        ResponseEntity<ErrorResponse> response = handler.handleUnauthorized(ex, mockRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(401, response.getBody().getStatus());
+        assertEquals("Unauthorized", response.getBody().getError());
+        assertEquals("Invalid or expired token", response.getBody().getMessage());
+    }
+
+    @Test
+    void handleUnauthorized_differentMessage_returns401() {
+        UnauthorizedException ex = new UnauthorizedException("Access denied");
+
+        ResponseEntity<ErrorResponse> response = handler.handleUnauthorized(ex, mockRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertEquals("Access denied", response.getBody().getMessage());
+    }
+
+    // ========== 3. BadRequestException → 400 ==========
+
+    @Test
+    void handleBadRequest_returns400() {
+        BadRequestException ex = new BadRequestException("Cannot delete pizza with active orders");
+
+        ResponseEntity<ErrorResponse> response = handler.handleBadRequest(ex, mockRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(400, response.getBody().getStatus());
+        assertEquals("Bad Request", response.getBody().getError());
+        assertEquals("Cannot delete pizza with active orders", response.getBody().getMessage());
+    }
+
+    // ========== 4. MethodArgumentNotValidException → 400 with fieldErrors ==========
+
+    @Test
+    void handleValidationErrors_multipleFieldErrors_returns400() {
+        BeanPropertyBindingResult bindingResult =
+                new BeanPropertyBindingResult(new ToppingDTO(), "toppingDTO");
+
+        bindingResult.addError(new FieldError("toppingDTO", "name", "must not be null"));
+        bindingResult.addError(new FieldError("toppingDTO", "price", "must be greater than 0"));
+
+        MethodArgumentNotValidException ex =
+                new MethodArgumentNotValidException(null, bindingResult);
+
+        ResponseEntity<ErrorResponse> response = handler.handleValidationErrors(ex, mockRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(400, response.getBody().getStatus());
+        assertEquals("Validation Failed", response.getBody().getError());
+        assertEquals("Input validation failed", response.getBody().getMessage());
+        assertNotNull(response.getBody().getFieldErrors());
+        assertEquals(2, response.getBody().getFieldErrors().size());
+        assertTrue(response.getBody().getFieldErrors().contains("name: must not be null"));
+        assertTrue(response.getBody().getFieldErrors().contains("price: must be greater than 0"));
+    }
+    
+    
+    
+    
+    @Test
+    void handleValidationErrors_singleFieldError_returns400() {
+        BeanPropertyBindingResult bindingResult =
+                new BeanPropertyBindingResult(new ToppingDTO(), "toppingDTO");
+
+        bindingResult.addError(new FieldError("toppingDTO", "name", "Topping name is required"));
+
+        MethodArgumentNotValidException ex =
+                new MethodArgumentNotValidException(null, bindingResult);
+
+        ResponseEntity<ErrorResponse> response = handler.handleValidationErrors(ex, mockRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(1, response.getBody().getFieldErrors().size());
+        assertTrue(response.getBody().getFieldErrors().contains("name: Topping name is required"));
+    }
+
+    @Test
+    void handleValidationErrors_noFieldErrors_returns400() {
+        BeanPropertyBindingResult bindingResult =
+                new BeanPropertyBindingResult(new ToppingDTO(), "toppingDTO");
+
+        MethodArgumentNotValidException ex =
+                new MethodArgumentNotValidException(null, bindingResult);
+
+        ResponseEntity<ErrorResponse> response = handler.handleValidationErrors(ex, mockRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertNull(response.getBody().getFieldErrors());
+    }
+
+  
+
+    
+
+    // ========== 6. MethodArgumentTypeMismatchException → 400 ==========
+
+    @Test
+    void handleTypeMismatch_withKnownType_returns400() {
+        MethodArgumentTypeMismatchException ex =
+                new MethodArgumentTypeMismatchException("abc", Long.class, "pizzaId", null, null);
+
+        ResponseEntity<ErrorResponse> response = handler.handleTypeMismatch(ex, mockRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(400, response.getBody().getStatus());
+        assertEquals("Type Mismatch", response.getBody().getError());
+        assertTrue(response.getBody().getMessage().contains("pizzaId"));
+        assertTrue(response.getBody().getMessage().contains("Long"));
+    }
+
+    @Test
+    void handleTypeMismatch_withNullType_returns400() {
+        MethodArgumentTypeMismatchException ex =
+                new MethodArgumentTypeMismatchException("abc", null, "size", null, null);
+
+        ResponseEntity<ErrorResponse> response = handler.handleTypeMismatch(ex, mockRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertTrue(response.getBody().getMessage().contains("unknown"));
+    }
+
+    // ========== 7. MissingRequestHeaderException → 400 ==========
+
+    @Test
+    void handleMissingHeader_returns400() {
+        MissingRequestHeaderException ex =
+                new MissingRequestHeaderException("X-User-Id", null);
+
+        ResponseEntity<ErrorResponse> response = handler.handleMissingHeader(ex, mockRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(400, response.getBody().getStatus());
+        assertEquals("Missing Header", response.getBody().getError());
+        assertTrue(response.getBody().getMessage().contains("X-User-Id"));
+    }
+
+    // ========== 8. ServiceException → 500 ==========
+
+    @Test
+    void handleServiceException_returns500() {
+        ServiceException ex = new ServiceException("Failed to connect to User Service");
+
+        ResponseEntity<ErrorResponse> response = handler.handleServiceException(ex, mockRequest);
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(500, response.getBody().getStatus());
+        assertEquals("Internal Server Error", response.getBody().getError());
+        assertEquals("Failed to connect to User Service", response.getBody().getMessage());
+    }
+
+    @Test
+    void handleServiceException_withCause_returns500() {
+        RuntimeException cause = new RuntimeException("Connection timeout");
+        ServiceException ex = new ServiceException("User Service unavailable", cause);
+
+        ResponseEntity<ErrorResponse> response = handler.handleServiceException(ex, mockRequest);
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertEquals("User Service unavailable", response.getBody().getMessage());
+    }
+
+    // ========== 9. Generic Exception → 500 ==========
+
+    @Test
+    void handleGenericException_returns500() {
+        Exception ex = new NullPointerException("Something went wrong");
+
+        ResponseEntity<ErrorResponse> response = handler.handleGenericException(ex, mockRequest);
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(500, response.getBody().getStatus());
+        assertEquals("Internal Server Error", response.getBody().getError());
+        assertEquals("An unexpected error occurred. Please try again later.",
+                response.getBody().getMessage());
+    }
+
+    @Test
+    void handleGenericException_doesNotExposeInternalDetails() {
+        Exception ex = new RuntimeException("DB password=secret123");
+
+        ResponseEntity<ErrorResponse> response = handler.handleGenericException(ex, mockRequest);
+
+        assertFalse(response.getBody().getMessage().contains("secret123"));
+        assertFalse(response.getBody().getMessage().contains("password"));
+        assertEquals("An unexpected error occurred. Please try again later.",
+                response.getBody().getMessage());
+    }
+
+    // ========== Path + Timestamp ==========
+
+    @Test
+    void allHandlers_includeRequestPath() {
+        mockRequest.setRequestURI("/api/toppings/5");
+
+        ResponseEntity<ErrorResponse> response = handler.handleBadRequest(
+                new BadRequestException("test"), mockRequest);
+
+        assertEquals("/api/toppings/5", response.getBody().getPath());
+    }
+
+    @Test
+    void allHandlers_includeTimestamp() {
+        ResponseEntity<ErrorResponse> response = handler.handleBadRequest(
+                new BadRequestException("test"), mockRequest);
+
+        assertNotNull(response.getBody().getTimestamp());
+    }
+}

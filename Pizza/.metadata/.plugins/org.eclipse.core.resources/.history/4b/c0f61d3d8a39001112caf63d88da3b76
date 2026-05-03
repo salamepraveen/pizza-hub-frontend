@@ -1,0 +1,381 @@
+package com.prav.order;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+import com.prav.order.client.PizzaClient;
+import com.prav.order.dto.*;
+import com.prav.order.model.Order;
+import com.prav.order.model.OrderItem;
+import com.prav.order.repository.OrderItemRepository;
+import com.prav.order.repository.OrderRepository;
+import com.prav.order.service.OrderServiceImpl;
+import com.prav.order.service.RazorpayPaymentService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
+
+@ExtendWith(MockitoExtension.class)
+public class OrderServiceApplicationTests {
+
+    @Mock
+    private OrderRepository orderRepo;
+
+    @Mock
+    private OrderItemRepository orderItemRepo;
+
+    @Mock
+    private PizzaClient pizzaClient;
+
+    @Mock
+    private RazorpayPaymentService paymentService;
+
+    @InjectMocks
+    private OrderServiceImpl orderService;
+
+    private Order order;
+
+    @BeforeEach
+    void setUp() {
+        order = new Order();
+        order.setId(1L);
+        order.setUserId(1L);
+        order.setRestaurantId(2L);
+        order.setTotalAmount(BigDecimal.valueOf(29.99));
+        order.setStatus(Order.OrderStatus.PLACED);
+        order.setPaymentStatus(Order.PaymentStatus.PENDING);
+        order.setCreatedAt(LocalDateTime.now());
+    }
+
+    // ==================== PLACE ORDER ====================
+
+    @Test
+    void testPlaceOrder_Success() {
+        when(orderRepo.save(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            o.setId(1L);
+            return o;
+        });
+
+        Map<String, Object> pizzaMap = new HashMap<>();
+        pizzaMap.put("name", "Margherita");
+        pizzaMap.put("price", 14.99);
+        pizzaMap.put("available", true);
+        when(pizzaClient.getPizzaById(10L)).thenReturn(pizzaMap);
+
+        when(orderItemRepo.save(any(OrderItem.class))).thenAnswer(inv -> {
+            OrderItem item = inv.getArgument(0);
+            item.setId(1L);
+            return item;
+        });
+
+        Map<String, Object> item = new HashMap<>();
+        item.put("pizzaId", 10L);
+        item.put("quantity", 2);
+
+        OrderResponseDTO result = orderService.placeOrder(1L, 2L, List.of(item));
+
+        assertNotNull(result);
+        assertEquals(1L, result.getId());
+        assertEquals(Order.OrderStatus.PLACED, result.getStatus());
+        assertEquals(29.98, result.getTotalAmount().doubleValue(), 0.01);
+        verify(orderRepo).save(any(Order.class));
+        verify(pizzaClient).getPizzaById(10L);
+        verify(orderItemRepo).save(any(OrderItem.class));
+    }
+
+    @Test
+    void testPlaceOrder_PizzaNotAvailable() {
+        Map<String, Object> pizzaMap = new HashMap<>();
+        pizzaMap.put("name", "Margherita");
+        pizzaMap.put("price", 14.99);
+        pizzaMap.put("available", false);
+        when(pizzaClient.getPizzaById(10L)).thenReturn(pizzaMap);
+
+        Map<String, Object> item = new HashMap<>();
+        item.put("pizzaId", 10L);
+        item.put("quantity", 1);
+
+        assertThrows(RuntimeException.class, () -> orderService.placeOrder(1L, 2L, List.of(item)));
+        verify(orderRepo, never()).save(any());
+    }
+
+    @Test
+    void testPlaceOrder_EmptyItems() {
+        when(orderRepo.save(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            o.setId(1L);
+            return o;
+        });
+
+        OrderResponseDTO result = orderService.placeOrder(1L, 2L, Collections.emptyList());
+
+        assertNotNull(result);
+        assertEquals(BigDecimal.ZERO, result.getTotalAmount());
+        verify(pizzaClient, never()).getPizzaById(anyLong());
+        verify(orderItemRepo, never()).save(any());
+    }
+
+    @Test
+    void testPlaceOrder_MultipleItems() {
+        when(orderRepo.save(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            o.setId(5L);
+            return o;
+        });
+
+        Map<String, Object> pizza1 = new HashMap<>();
+        pizza1.put("name", "Margherita");
+        pizza1.put("price", 10.0);
+        pizza1.put("available", true);
+        when(pizzaClient.getPizzaById(1L)).thenReturn(pizza1);
+
+        Map<String, Object> pizza2 = new HashMap<>();
+        pizza2.put("name", "Pepperoni");
+        pizza2.put("price", 15.0);
+        pizza2.put("available", true);
+        when(pizzaClient.getPizzaById(2L)).thenReturn(pizza2);
+
+        Map<String, Object> item1 = new HashMap<>();
+        item1.put("pizzaId", 1L);
+        item1.put("quantity", 2);
+
+        Map<String, Object> item2 = new HashMap<>();
+        item2.put("pizzaId", 2L);
+        item2.put("quantity", 1);
+
+        OrderResponseDTO result = orderService.placeOrder(1L, 2L, List.of(item1, item2));
+
+        assertNotNull(result);
+        assertEquals(35.0, result.getTotalAmount().doubleValue(), 0.01);
+        verify(pizzaClient).getPizzaById(1L);
+        verify(pizzaClient).getPizzaById(2L);
+    }
+
+    // ==================== GET MY ORDERS ====================
+
+    @Test
+    void testGetMyOrders_ReturnsList() {
+        when(orderRepo.findByUserId(1L)).thenReturn(List.of(order));
+
+        List<OrderResponseDTO> result = orderService.getMyOrders(1L);
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(1L, result.get(0).getId());
+        assertEquals(Order.OrderStatus.PLACED, result.get(0).getStatus());
+        verify(orderRepo).findByUserId(1L);
+    }
+
+    @Test
+    void testGetMyOrders_EmptyResult() {
+        when(orderRepo.findByUserId(99L)).thenReturn(Collections.emptyList());
+
+        List<OrderResponseDTO> result = orderService.getMyOrders(99L);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    // ==================== GET RESTAURANT ORDERS ====================
+
+    @Test
+    void testGetRestaurantOrders_ReturnsList() {
+        when(orderRepo.findByRestaurantId(2L)).thenReturn(List.of(order));
+
+        List<OrderResponseDTO> result = orderService.getRestaurantOrders(2L);
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(2L, result.get(0).getRestaurantId());
+        verify(orderRepo).findByRestaurantId(2L);
+    }
+
+    @Test
+    void testGetRestaurantOrders_EmptyResult() {
+        when(orderRepo.findByRestaurantId(99L)).thenReturn(Collections.emptyList());
+
+        List<OrderResponseDTO> result = orderService.getRestaurantOrders(99L);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    // ==================== GET ORDER BY ID ====================
+
+    @Test
+    void testGetOrderById_Success() {
+        when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
+
+        OrderResponseDTO result = orderService.getOrderById(1L);
+
+        assertNotNull(result);
+        assertEquals(1L, result.getId());
+        assertEquals(1L, result.getUserId());
+    }
+
+    @Test
+    void testGetOrderById_NotFound() {
+        when(orderRepo.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> orderService.getOrderById(99L));
+    }
+
+    // ==================== GET ORDER ITEMS ====================
+
+    @Test
+    void testGetOrderItems_ReturnsList() {
+        OrderItem item = new OrderItem();
+        item.setId(1L);
+        item.setOrderId(1L);
+        item.setPizzaId(10L);
+        item.setPizzaName("Margherita");
+        item.setQuantity(2);
+        item.setPrice(14.99);
+
+        when(orderItemRepo.findByOrderId(1L)).thenReturn(List.of(item));
+
+        List<OrderItemResponseDTO> result = orderService.getOrderItems(1L);
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("Margherita", result.get(0).getPizzaName());
+        assertEquals(2, result.get(0).getQuantity());
+        verify(orderItemRepo).findByOrderId(1L);
+    }
+
+    @Test
+    void testGetOrderItems_EmptyResult() {
+        when(orderItemRepo.findByOrderId(99L)).thenReturn(Collections.emptyList());
+
+        List<OrderItemResponseDTO> result = orderService.getOrderItems(99L);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    // ==================== UPDATE STATUS ====================
+
+    @Test
+    void testUpdateStatus_ToConfirmed() {
+        when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepo.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrderResponseDTO result = orderService.updateStatus(1L, "CONFIRMED");
+
+        assertEquals(Order.OrderStatus.CONFIRMED, result.getStatus());
+        verify(orderRepo).save(any(Order.class));
+    }
+
+    @Test
+    void testUpdateStatus_ToPreparing() {
+        order.setStatus(Order.OrderStatus.CONFIRMED);
+        when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepo.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrderResponseDTO result = orderService.updateStatus(1L, "PREPARING");
+
+        assertEquals(Order.OrderStatus.PREPARING, result.getStatus());
+    }
+
+    @Test
+    void testUpdateStatus_ToDelivered() {
+        order.setStatus(Order.OrderStatus.OUT_FOR_DELIVERY);
+        when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepo.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrderResponseDTO result = orderService.updateStatus(1L, "DELIVERED");
+
+        assertEquals(Order.OrderStatus.DELIVERED, result.getStatus());
+    }
+
+    @Test
+    void testUpdateStatus_InvalidTransition() {
+        when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
+
+        // PLACED → PREPARING (should fail, must go PLACED → CONFIRMED → PREPARING)
+        assertThrows(RuntimeException.class, () -> orderService.updateStatus(1L, "PREPARING"));
+    }
+
+    @Test
+    void testUpdateStatus_OrderNotFound() {
+        when(orderRepo.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> orderService.updateStatus(99L, "CONFIRMED"));
+    }
+
+    @Test
+    void testUpdateStatus_InvalidStatusName() {
+        when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class, () -> orderService.updateStatus(1L, "INVALID_STATUS"));
+    }
+
+    // ==================== CANCEL ORDER ====================
+
+    @Test
+    void testCancelOrder_NoPayment() {
+        when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepo.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrderResponseDTO result = orderService.cancelOrder(1L, 1L, "Changed my mind");
+
+        assertEquals(Order.OrderStatus.CANCELLED, result.getStatus());
+        assertEquals("Changed my mind", result.getCancellationReason());
+        verify(paymentService, never()).processRefund(any(), any(), any());
+    }
+
+    @Test
+    void testCancelOrder_WithPayment() {
+        order.setPaymentStatus(Order.PaymentStatus.COMPLETED);
+        order.setRazorpayPaymentId("pay_123");
+        when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepo.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        RefundResponseDTO refund = RefundResponseDTO.builder()
+                .refundAmount(BigDecimal.valueOf(20.99))
+                .refundId("refund_123")
+                .status("processed")
+                .build();
+        when(paymentService.processRefund(eq(1L), any(), eq("pay_123"))).thenReturn(refund);
+
+        OrderResponseDTO result = orderService.cancelOrder(1L, 1L, "Wrong order");
+
+        assertEquals(Order.OrderStatus.CANCELLED, result.getStatus());
+        assertEquals(Order.PaymentStatus.PARTIALLY_REFUNDED, result.getPaymentStatus());
+        assertEquals(BigDecimal.valueOf(20.99), result.getRefundAmount());
+        assertEquals("refund_123", result.getRefundId());
+        verify(paymentService).processRefund(eq(1L), any(), eq("pay_123"));
+    }
+
+    @Test
+    void testCancelOrder_WrongUser() {
+        when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class, () -> orderService.cancelOrder(1L, 99L, "Hacking"));
+    }
+
+    @Test
+    void testCancelOrder_AlreadyCancelled() {
+        order.setStatus(Order.OrderStatus.CANCELLED);
+        when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class, () -> orderService.cancelOrder(1L, 1L, "Again"));
+    }
+
+    @Test
+    void testCancelOrder_AlreadyDelivered() {
+        order.setStatus(Order.OrderStatus.DELIVERED);
+        when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class, () -> orderService.cancelOrder(1L, 1L, "Too late"));
+    }
+}

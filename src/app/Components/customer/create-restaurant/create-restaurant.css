@@ -1,0 +1,131 @@
+.create-restaurant-container {
+  min-height: calc(100vh - 80px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+  background-color: #f8f9fa;
+}
+
+.form-card {
+  background: white;
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  width: 100%;
+  max-width: 500px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.header .icon {
+  font-size: 3rem;
+  margin-bottom: 15px;
+}
+
+.header h2 {
+  color: #1a1a2e;
+  font-size: 1.8rem;
+  margin-bottom: 10px;
+}
+
+.header p {
+  color: #666;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.form-control {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.form-control:focus {
+  border-color: #e94560;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.1);
+}
+
+.btn-submit {
+  width: 100%;
+  padding: 14px;
+  background: #e94560;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-submit:hover:not([disabled]) {
+  background: #d63d56;
+}
+
+.btn-submit[disabled] {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.error-alert {
+  background: #fdf3f2;
+  color: #c0392b;
+  border: 1px solid #fadbd8;
+}
+
+.success-alert {
+  background: #f0faf4;
+  color: #27ae60;
+  border: 1px solid #d5f5e3;
+}
+
+.small-text {
+  font-size: 0.85rem;
+  margin-top: 5px;
+  opacity: 0.8;
+}
+
+.back-link {
+  text-align: center;
+  margin-top: 25px;
+}
+
+.back-link a {
+  color: #666;
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: color 0.2s;
+}
+
+.back-link a:hover {
+  color: #e94560;
+  text-decoration: underline;
+}

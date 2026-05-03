@@ -1,0 +1,145 @@
+<div class="orders-page">
+  <div class="orders-header">
+    <h1>My Orders</h1>
+    <button class="order-more-btn" (click)="router.navigate(['/customer'])">Order More Pizzas</button>
+  </div>
+
+  <div class="loading-spinner" *ngIf="loading">
+    <div class="spinner"></div>
+    <p>Loading your orders...</p>
+  </div>
+
+  <div class="empty-orders" *ngIf="!loading && orders.length === 0 && !error">
+    <h3>No orders yet</h3>
+    <p>You haven't placed any orders yet.</p>
+    <button class="browse-btn" (click)="router.navigate(['/customer'])">Browse Menu</button>
+  </div>
+
+  <p class="error-text" *ngIf="error">{{ error }}</p>
+
+  <div *ngIf="!loading && orders.length > 0">
+    
+    <!-- ACTIVE ORDERS SECTION -->
+    <div class="section-container" *ngIf="activeOrders.length > 0">
+      <h2 class="section-title">Active Orders</h2>
+      <div class="orders-list">
+        <div class="order-card" *ngFor="let order of activeOrders">
+          <div class="order-card-header" (click)="viewOrderDetail(order)">
+            <div class="order-left">
+              <span class="order-id">Order #{{ order.id }}</span>
+              <span class="order-date">{{ getOrderDate(order.createdAt || order.orderDate) }}</span>
+            </div>
+            <div class="order-right">
+              <span class="status-badge" [style.background-color]="getStatusColor(order.status)">
+                {{ getStatusLabel(order.status) }}
+              </span>
+              <span class="order-amount">{{ order.totalAmount || order.total }}</span>
+            </div>
+          </div>
+
+          <div class="order-items" *ngIf="selectedOrder?.id === order.id">
+            <div class="order-item" *ngFor="let item of (order.items || order.orderItems || [])">
+              <div class="oi-left">
+                <span class="oi-name">{{ item.pizzaName || item.name }}</span>
+                <span class="oi-meta">
+                  {{ item.size || 'Regular' }}
+                  <span *ngIf="item.toppings"> | {{ item.toppings }}</span>
+                </span>
+              </div>
+              <div class="oi-right">
+                <span class="oi-qty">x{{ item.quantity }}</span>
+                <span class="oi-price">{{ item.itemTotal || item.totalPrice || (item.quantity * (item.price || 0)) }}</span>
+              </div>
+            </div>
+
+            <div class="order-footer">
+              <div class="order-delivery" *ngIf="order.deliveryAddress">
+                <span class="footer-label">Delivery:</span> {{ order.deliveryAddress }}
+              </div>
+              <div class="order-payment">
+                <span class="footer-label">Payment:</span>
+                <span class="payment-badge" [class.completed]="getPaymentStatus(order.paymentStatus) === 'COMPLETED'">
+                  {{ getPaymentStatus(order.paymentStatus) }}
+                </span>
+              </div>
+              <div class="order-actions" *ngIf="['PLACED', 'CONFIRMED'].includes(order.status)">
+                <button class="cancel-btn" (click)="openCancelModal(order, $event)">Cancel Order</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PREVIOUS ORDERS SECTION -->
+    <div class="section-container" *ngIf="historyOrders.length > 0" style="margin-top: 40px;">
+      <h2 class="section-title">Previous Orders</h2>
+      <div class="orders-list opacity-list">
+        <div class="order-card history-card" *ngFor="let order of historyOrders">
+          <div class="order-card-header" (click)="viewOrderDetail(order)">
+            <div class="order-left">
+              <span class="order-id">Order #{{ order.id }}</span>
+              <span class="order-date">{{ getOrderDate(order.createdAt || order.orderDate) }}</span>
+            </div>
+            <div class="order-right">
+              <span class="status-badge" [style.background-color]="getStatusColor(order.status)">
+                {{ getStatusLabel(order.status) }}
+              </span>
+              <span class="order-amount">{{ order.totalAmount || order.total }}</span>
+            </div>
+          </div>
+
+          <div class="order-items" *ngIf="selectedOrder?.id === order.id">
+            <div class="order-item" *ngFor="let item of (order.items || order.orderItems || [])">
+              <div class="oi-left">
+                <span class="oi-name">{{ item.pizzaName || item.name }}</span>
+                <span class="oi-meta">
+                  {{ item.size || 'Regular' }}
+                  <span *ngIf="item.toppings"> | {{ item.toppings }}</span>
+                </span>
+              </div>
+              <div class="oi-right">
+                <span class="oi-qty">x{{ item.quantity }}</span>
+                <span class="oi-price">{{ item.itemTotal || item.totalPrice || (item.quantity * (item.price || 0)) }}</span>
+              </div>
+            </div>
+
+            <div class="order-footer">
+              <div class="order-delivery" *ngIf="order.deliveryAddress">
+                <span class="footer-label">Delivery:</span> {{ order.deliveryAddress }}
+              </div>
+              <div class="order-payment">
+                <span class="footer-label">Payment:</span>
+                <span class="payment-badge" [class.completed]="getPaymentStatus(order.paymentStatus) === 'COMPLETED'">
+                  {{ getPaymentStatus(order.paymentStatus) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Cancel Order Modal -->
+<div class="modal-overlay" *ngIf="showCancelModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Cancel Order #{{ orderToCancel?.id }}</h2>
+      <button class="close-btn" (click)="closeCancelModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Reason for cancellation <span class="required">*</span></label>
+        <textarea [(ngModel)]="cancelReason" placeholder="Tell us why you're cancelling..." rows="4"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="closeCancelModal()">Go Back</button>
+      <button class="btn-danger" (click)="cancelOrder()">Confirm Cancellation</button>
+    </div>
+  </div>
+</div>
+

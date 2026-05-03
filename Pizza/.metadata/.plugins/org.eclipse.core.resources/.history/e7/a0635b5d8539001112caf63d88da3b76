@@ -1,0 +1,147 @@
+package com.prav.user.aspect;
+
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
+
+import com.prav.user.aspect.LoggingAspect;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class LoggingAspectTest {
+
+    @InjectMocks
+    private ApiLoggingAspect loggingAspect;
+
+    @Mock
+    private ProceedingJoinPoint joinPoint;
+
+    private ListAppender<ILoggingEvent> createAppender() {
+        Logger logger = (Logger) LoggerFactory.getLogger(LoggingAspect.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        return appender;
+    }
+
+    // ========== logController ==========
+
+    @Test
+    void logController_successfulExecution_logsStartAndEnd() throws Throwable {
+        when(joinPoint.getTarget()).thenReturn(new Object());
+        when(joinPoint.getSignature()).thenReturn(mock(org.aspectj.lang.Signature.class));
+        when(joinPoint.getSignature().getName()).thenReturn("getUser");
+        when(joinPoint.proceed()).thenReturn("result");
+
+        ListAppender<ILoggingEvent> appender = createAppender();
+
+        Object result = loggingAspect.logController(joinPoint);
+
+        assertEquals("result", result);
+        long startEndCount = appender.list.stream()
+                .filter(e -> e.getFormattedMessage().contains("[CONTROLLER]"))
+                .count();
+        assertEquals(2, startEndCount); // START + END
+        assertTrue(appender.list.stream().anyMatch(e -> e.getFormattedMessage().contains("START")));
+        assertTrue(appender.list.stream().anyMatch(e -> e.getFormattedMessage().contains("END")));
+    }
+
+    @Test
+    void logController_exceptionThrown_logsFailure() throws Throwable {
+        when(joinPoint.getTarget()).thenReturn(new Object());
+        when(joinPoint.getSignature()).thenReturn(mock(org.aspectj.lang.Signature.class));
+        when(joinPoint.getSignature().getName()).thenReturn("deleteUser");
+        when(joinPoint.proceed()).thenThrow(new RuntimeException("Not found"));
+
+        ListAppender<ILoggingEvent> appender = createAppender();
+
+        assertThrows(RuntimeException.class, () -> loggingAspect.logController(joinPoint));
+
+        assertTrue(appender.list.stream().anyMatch(e -> e.getFormattedMessage().contains("START")));
+        assertTrue(appender.list.stream().anyMatch(e -> e.getFormattedMessage().contains("FAILED")));
+        assertTrue(appender.list.stream().anyMatch(e -> e.getFormattedMessage().contains("Not found")));
+    }
+
+    @Test
+    void logController_returnsProceedResult() throws Throwable {
+        Object fakeResult = new Object();
+        when(joinPoint.getTarget()).thenReturn(new Object());
+        when(joinPoint.getSignature()).thenReturn(mock(org.aspectj.lang.Signature.class));
+        when(joinPoint.getSignature().getName()).thenReturn("getAll");
+        when(joinPoint.proceed()).thenReturn(fakeResult);
+
+        ListAppender<ILoggingEvent> appender = createAppender();
+
+        Object result = loggingAspect.logController(joinPoint);
+
+        assertSame(fakeResult, result);
+    }
+
+    // ========== logService ==========
+
+    @Test
+    void logService_successfulExecution_logsStartAndEnd() throws Throwable {
+        when(joinPoint.getTarget()).thenReturn(new Object());
+        when(joinPoint.getSignature()).thenReturn(mock(org.aspectj.lang.Signature.class));
+        when(joinPoint.getSignature().getName()).thenReturn("createUser");
+        when(joinPoint.proceed()).thenReturn("result");
+
+        ListAppender<ILoggingEvent> appender = createAppender();
+
+        Object result = loggingAspect.logService(joinPoint);
+
+        assertEquals("result", result);
+        long startEndCount = appender.list.stream()
+                .filter(e -> e.getFormattedMessage().contains("[SERVICE]"))
+                .count();
+        assertEquals(2, startEndCount); // START + END
+        assertTrue(appender.list.stream().anyMatch(e -> e.getFormattedMessage().contains("START")));
+        assertTrue(appender.list.stream().anyMatch(e -> e.getFormattedMessage().contains("END")));
+    }
+
+    @Test
+    void logService_exceptionThrown_logsFailure() throws Throwable {
+        when(joinPoint.getTarget()).thenReturn(new Object());
+        when(joinPoint.getSignature()).thenReturn(mock(org.aspectj.lang.Signature.class));
+        when(joinPoint.getSignature().getName()).thenReturn("promoteUser");
+        when(joinPoint.proceed()).thenThrow(new RuntimeException("User not found"));
+
+        ListAppender<ILoggingEvent> appender = createAppender();
+
+        assertThrows(RuntimeException.class, () -> loggingAspect.logService(joinPoint));
+
+        assertTrue(appender.list.stream().anyMatch(e -> e.getFormattedMessage().contains("START")));
+        assertTrue(appender.list.stream().anyMatch(e -> e.getFormattedMessage().contains("FAILED")));
+        assertTrue(appender.list.stream().anyMatch(e -> e.getFormattedMessage().contains("User not found")));
+    }
+
+    @Test
+    void logService_returnsProceedResult() throws Throwable {
+        Object fakeResult = new Object();
+        when(joinPoint.getTarget()).thenReturn(new Object());
+        when(joinPoint.getSignature()).thenReturn(mock(org.aspectj.lang.Signature.class));
+        when(joinPoint.getSignature().getName()).thenReturn("demoteUser");
+        when(joinPoint.proceed()).thenReturn(fakeResult);
+
+        ListAppender<ILoggingEvent> appender = createAppender();
+
+        Object result = loggingAspect.logService(joinPoint);
+
+        assertSame(fakeResult, result);
+    }
+
+    @Test
+    void loggingAspect_isNotNull() {
+        assertNotNull(loggingAspect);
+    }
+}

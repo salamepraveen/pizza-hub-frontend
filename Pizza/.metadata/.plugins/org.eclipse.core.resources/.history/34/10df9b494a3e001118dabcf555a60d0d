@@ -1,0 +1,15 @@
+spring.application.name=auth-service
+spring.main.allow-bean-definition-overriding=true
+
+# Email SMTP Config
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=praveensdarc@gmail.com
+spring.mail.password=cgwx etsy ogyj vvbd
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+spring.mail.properties.mail.smtp.starttls.required=true
+
+# OTP Config
+otp.expiry.minutes=5
+otp.length=6

@@ -1,0 +1,15 @@
+package com.prav.auth;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
+import org.springframework.cloud.netflix.eureka.server.EnableEurekaClient;
+
+@SpringBootApplication(exclude = UserDetailsServiceAutoConfiguration.class)
+@EnableEurekaClient
+public class AuthServiceApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(AuthServiceApplication.class, args);
+    }
+}

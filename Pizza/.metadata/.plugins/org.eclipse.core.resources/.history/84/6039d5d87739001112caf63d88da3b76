@@ -1,0 +1,81 @@
+package com.prav.auth.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.prav.auth.client.UserClient;
+import com.prav.auth.dto.AuthRequest;
+import com.prav.auth.dto.AuthResponse;
+import com.prav.auth.dto.UserDTO;
+import com.prav.auth.exception.InvalidCredentialsException;
+import com.prav.auth.util.JwtUtil;
+import com.prav.common.exception.ConflictException;
+import com.prav.common.exception.ResourceNotFoundException;
+
+@Service
+public class AuthService {
+
+    @Autowired
+    private UserClient userClient;
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+
+    public AuthResponse signup(AuthRequest req) {
+        // Check if user already exists
+        try {
+            userClient.getUserByUsername(req.getUsername());
+            throw new ConflictException("User already exists with username: " + req.getUsername());
+        } catch (ConflictException e) {
+            throw e; // re-throw our conflict
+        } catch (Exception e) {
+            // 404 or other error from Feign — user doesn't exist, proceed
+            if (e.getMessage() == null || !e.getMessage().contains("404")) {
+                throw new RuntimeException("Error checking user: " + e.getMessage(), e);
+            }
+        }
+
+        // Create user
+        UserDTO user = new UserDTO();
+        user.setUsername(req.getUsername());
+        user.setPassword(encoder.encode(req.getPassword()));
+        UserDTO createdUser = userClient.createUser(user);
+
+        // Generate token
+        String token = jwtUtil.generateToken(createdUser);
+
+        // Build response
+        AuthResponse response = new AuthResponse();
+        response.setUserId(createdUser.getId());
+        response.setUsername(createdUser.getUsername());
+        response.setToken(token);
+        response.setRole(createdUser.getRole());
+        response.setAssignedRestaurantId(createdUser.getAssignedRestaurantId());
+        response.setKnownRestaurantIds(createdUser.getKnownRestaurantIds());
+
+        return response;
+    }
+
+    public AuthResponse signin(AuthRequest req) {
+        UserDTO user = userClient.getUserByUsername(req.getUsername());
+
+        if (!encoder.matches(req.getPassword(), user.getPassword())) {
+            throw new InvalidCredentialsException("Invalid credentials");
+        }
+
+        String token = jwtUtil.generateToken(user);
+
+        AuthResponse response = new AuthResponse();
+        response.setUserId(user.getId());
+        response.setUsername(user.getUsername());
+        response.setToken(token);
+        response.setRole(user.getRole());
+        response.setAssignedRestaurantId(user.getAssignedRestaurantId());
+        response.setKnownRestaurantIds(user.getKnownRestaurantIds());
+
+        return response;
+    }
+}

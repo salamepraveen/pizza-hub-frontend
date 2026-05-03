@@ -1,0 +1,152 @@
+package com.prav.order.dto;
+
+import com.razorpay.Order;
+import com.razorpay.RazorpayClient;
+import com.razorpay.RazorpayException;
+import com.razorpay.Refund;
+import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+
+@Service
+public class RazorpayPaymentService {
+
+    private static final Logger log = LoggerFactory.getLogger(RazorpayPaymentService.class);
+
+    @Value("${razorpay.key-id}")
+    private String keyId;
+
+    @Value("${razorpay.key-secret}")
+    private String keySecret;
+
+    @Value("${razorpay.currency}")
+    private String currency;
+
+    @Value("${razorpay.refund-percentage}")
+    private int refundPercentage;
+
+    private RazorpayClient getClient() throws RazorpayException {
+        return new RazorpayClient(keyId, keySecret);
+    }
+
+    /**
+     * Create a Razorpay order
+     */
+    public com.razorpay.Order createRazorpayOrder(Long orderId, BigDecimal amount) {
+        try {
+            RazorpayClient client = getClient();
+
+            JSONObject orderRequest = new JSONObject();
+            // Razorpay expects amount in paise (smallest currency unit)
+            long amountInPaise = amount.multiply(BigDecimal.valueOf(100)).longValue();
+            orderRequest.put("amount", amountInPaise);
+            orderRequest.put("currency", currency);
+            orderRequest.put("receipt", "order_rcpt_" + orderId);
+
+            JSONObject notes = new JSONObject();
+            notes.put("orderId", orderId.toString());
+            orderRequest.put("notes", notes);
+
+            Order razorpayOrder = client.Orders.create(orderRequest);
+
+            System.out.println("========================================");
+            System.out.println("  RAZORPAY ORDER CREATED");
+            System.out.println("  Order ID: " + orderId);
+            System.out.println("  Razorpay Order ID: " + razorpayOrder.get("id"));
+            System.out.println("  Amount: ₹" + amount);
+            System.out.println("  Currency: " + currency);
+            System.out.println("========================================");
+
+            return razorpayOrder;
+        } catch (RazorpayException e) {
+            System.out.println("!! RAZORPAY ORDER CREATION FAILED: " + e.getMessage());
+            throw new RuntimeException("Failed to create payment order: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Verify Razorpay payment signature
+     */
+    public boolean verifyPayment(String orderId, String paymentId, String signature) {
+        try {
+            System.out.println("  [PAYMENT] Verifying payment...");
+            System.out.println("  [PAYMENT] Order ID: " + orderId);
+            System.out.println("  [PAYMENT] Payment ID: " + paymentId);
+
+            JSONObject attributes = new JSONObject();
+            attributes.put("razorpay_order_id", orderId);
+            attributes.put("razorpay_payment_id", paymentId);
+            attributes.put("razorpay_signature", signature);
+
+            return utils.RazorpaySignature.verifyPaymentSignature(attributes, keySecret);
+        } catch (Exception e) {
+            System.out.println("  [PAYMENT] !! Verification failed: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Process refund — only partial (70%)
+     */
+    public RefundResponseDTO processRefund(Long orderId, BigDecimal originalAmount,
+                                            String razorpayPaymentId) {
+        try {
+            RazorpayClient client = getClient();
+
+            // Calculate refund amount (70%)
+            BigDecimal refundFactor = BigDecimal.valueOf(refundPercentage).divide(BigDecimal.valueOf(100));
+            BigDecimal refundAmount = originalAmount.multiply(refundFactor);
+            BigDecimal deduction = originalAmount.subtract(refundAmount);
+
+            long refundInPaise = refundAmount.multiply(BigDecimal.valueOf(100)).longValue();
+
+            JSONObject refundRequest = new JSONObject();
+            refundRequest.put("amount", refundInPaise);
+            refundRequest.put("speed", "normal");
+
+            JSONObject notes = new JSONObject();
+            notes.put("reason", "Customer cancelled order after payment");
+            notes.put("orderId", orderId.toString());
+            notes.put("originalAmount", originalAmount.toString());
+            notes.put("refundPercentage", refundPercentage + "%");
+            refundRequest.put("notes", notes);
+
+            System.out.println("========================================");
+            System.out.println("  PROCESSING REFUND");
+            System.out.println("  Order ID: " + orderId);
+            System.out.println("  Original Amount: ₹" + originalAmount);
+            System.out.println("  Refund Percentage: " + refundPercentage + "%");
+            System.out.println("  Refund Amount: ₹" + refundAmount);
+            System.out.println("  Deduction: ₹" + deduction);
+            System.out.println("========================================");
+
+            Refund refund = client.Payments.refund(razorpayPaymentId, refundRequest);
+
+            System.out.println("  [REFUND] Refund ID: " + refund.get("id"));
+            System.out.println("  [REFUND] Status: " + refund.get("status"));
+
+            return RefundResponseDTO.builder()
+                    .orderId(orderId)
+                    .originalAmount(originalAmount)
+                    .refundAmount(refundAmount)
+                    .deductionAmount(deduction)
+                    .refundPercentage(refundPercentage)
+                    .refundId(refund.get("id").toString())
+                    .status(refund.get("status").toString())
+                    .message("Refund of " + refundPercentage + "% processed. ₹" + deduction + " deducted as cancellation fee.")
+                    .build();
+
+        } catch (RazorpayException e) {
+            System.out.println("  [REFUND] !! Failed: " + e.getMessage());
+            throw new RuntimeException("Failed to process refund: " + e.getMessage());
+        }
+    }
+
+    public String getKeyId() {
+        return keyId;
+    }
+}

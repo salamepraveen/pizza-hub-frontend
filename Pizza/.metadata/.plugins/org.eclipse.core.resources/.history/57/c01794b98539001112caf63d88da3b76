@@ -1,0 +1,5 @@
+package com.prav.order.model;
+
+public class Order {
+
+}

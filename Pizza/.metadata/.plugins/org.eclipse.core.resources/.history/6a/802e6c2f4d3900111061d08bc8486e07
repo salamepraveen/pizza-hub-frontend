@@ -1,0 +1,5 @@
+package com.prav.common.exception;
+
+public class BaseGlobalExceptionHandler {
+
+}

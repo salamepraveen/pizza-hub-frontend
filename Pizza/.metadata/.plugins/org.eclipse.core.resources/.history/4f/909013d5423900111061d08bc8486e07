@@ -1,0 +1,52 @@
+package com.prav.auth.service;
+
+
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+import com.prav.auth.client.*;
+import com.prav.auth.dto.*;
+
+import com.prav.auth.util.*;
+
+@Service
+public class AuthService {
+
+    @Autowired
+    private UserClient userClient;
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+
+    public String signup(AuthRequest req) {
+        UserDTO user = new UserDTO();
+        user.setUsername(req.getUsername());
+        user.setPassword(encoder.encode(req.getPassword()));  //encrypting 
+        userClient.createUser(user);
+        return "User created";
+    }
+
+    public Map<String, Object> signin(AuthRequest req) {
+        UserDTO user = userClient.getUserByUsername(req.getUsername());
+
+        if (!encoder.matches(req.getPassword(), user.getPassword())) {   //decrypting 
+            throw new RuntimeException("Invalid credentials");
+        }
+
+        String token = jwtUtil.generateToken(user);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", token);
+        response.put("userId", user.getId());
+        response.put("username", user.getUsername());
+        response.put("role", user.getRole());
+        response.put("assignedRestaurantId", user.getAssignedRestaurantId());
+        response.put("knownRestaurantIds", user.getKnownRestaurantIds());
+
+        return response;
+    }
+}

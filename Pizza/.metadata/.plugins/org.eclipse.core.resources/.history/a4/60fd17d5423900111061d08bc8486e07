@@ -1,0 +1,18 @@
+package com.prav.auth.client;
+
+import com.prav.auth.dto.*;
+import org.springframework.stereotype.Component;
+
+@Component
+public class UserClientFallback implements UserClient {
+
+    @Override
+    public UserDTO createUser(UserDTO user) {
+        throw new RuntimeException("User Service is unavailable");
+    }
+
+    @Override
+    public UserDTO getUserByUsername(String username) {
+        throw new RuntimeException("User Service is unavailable");
+    }
+}

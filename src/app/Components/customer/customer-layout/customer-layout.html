@@ -1,0 +1,23 @@
+<div class="customer-layout">
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="nav-left">
+        <a routerLink="/customer" class="logo"><span class="logo-text">PizzaHub</span></a>
+        <button class="hamburger" (click)="toggleMobileMenu()">☰</button>
+      </div>
+      <div class="nav-links" [class.open]="mobileMenuOpen">
+        <a routerLink="/customer" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-link">Home</a>
+        <a routerLink="/customer/menu" routerLinkActive="active" class="nav-link">Menu</a>
+        <a routerLink="/customer/orders" routerLinkActive="active" class="nav-link">My Orders</a>
+      </div>
+      <div class="nav-right">
+        <a routerLink="/customer/cart" class="cart-link">Cart<span class="cart-badge" *ngIf="cartCount > 0">{{ cartCount }}</span></a>
+        <a routerLink="/customer/profile" class="user-name" style="cursor: pointer; text-decoration: underline; color: inherit;">{{ username }}</a>
+        <span class="role-badge" [class.admin]="role === 'ADMIN'" [class.staff]="role === 'STAFF'" [class.user]="role === 'USER'">{{ role }}</span>
+        <button class="logout-btn" (click)="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+  <main class="main-content"><router-outlet></router-outlet></main>
+  <footer class="footer"><p>2026 PizzaHub. All rights reserved.</p></footer>
+</div>

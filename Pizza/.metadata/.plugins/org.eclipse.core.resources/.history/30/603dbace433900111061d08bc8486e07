@@ -1,0 +1,40 @@
+package com.prav.auth.controller;
+
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import com.prav.auth_service.dto.AuthRequest;
+import jakarta.validation.Valid;
+
+import com.prav.auth_service.service.AuthService;
+
+@RestController
+@RequestMapping("/auth")
+public class AuthController {
+
+    @Autowired
+    private AuthService service;
+   
+    @PostMapping("/signup")
+    public ResponseEntity<String> signup(@Valid @RequestBody  AuthRequest req) {
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED).body(service.signup(req));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Signup Failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/signin")
+    public ResponseEntity<?> signin(@Valid @RequestBody AuthRequest req) {
+        try {
+            Map<String, Object> result = service.signin(req);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Signin Failed: " + e.getMessage());
+        }
+    }
+}

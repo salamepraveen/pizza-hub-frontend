@@ -1,0 +1,85 @@
+package com.prav.auth.service;
+
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.prav.auth.client.UserClient;
+import com.prav.auth.dto.AuthRequest;
+import com.prav.auth.dto.UserDTO;
+import com.prav.auth.util.JwtUtil;
+
+
+@Service
+public class AuthService {
+
+    @Autowired
+    private UserClient userClient;
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+
+    public String signup(AuthRequest req) {
+        UserDTO user = new UserDTO();
+        user.setUsername(req.getUsername());
+        user.setPassword(encoder.encode(req.getPassword()));  //encrypting 
+        userClient.createUser(user);
+        return "User created";
+    }
+
+    public Map<String, Object> signin(AuthRequest req) {
+        UserDTO user = userClient.getUserByUsername(req.getUsername());
+
+        if (!encoder.matches(req.getPassword(), user.getPassword())) {   //decrypting 
+            throw new RuntimeException("Invalid credentials");
+        }
+
+        String token = jwtUtil.generateToken(user);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", token);
+        response.put("userId", user.getId());
+        response.put("username", user.getUsername());
+        response.put("role", user.getRole());
+        response.put("assignedRestaurantId", user.getAssignedRestaurantId());
+        response.put("knownRestaurantIds", user.getKnownRestaurantIds());
+
+        return response;
+    }
+    
+ // In AuthService.java
+
+    public AuthResponse signup(AuthRequest req) {
+        // ... your existing user creation logic ...
+
+        // Build and return AuthResponse instead of converting to JSON string
+        AuthResponse response = new AuthResponse();
+        response.setUserId(user.getUserId());
+        response.setUsername(user.getUsername());
+        response.setToken(jwtToken);
+        response.setRole(user.getRole());
+        response.setAssignedRestaurantId(user.getAssignedRestaurantId());
+        response.setKnownRestaurantIds(user.getKnownRestaurantIds());
+
+        return response;
+    }
+
+    public AuthResponse signin(AuthRequest req) {
+        // ... your existing signin logic ...
+
+        // Same thing — build AuthResponse object, return it directly
+        AuthResponse response = new AuthResponse();
+        response.setUserId(user.getUserId());
+        response.setUsername(user.getUsername());
+        response.setToken(jwtToken);
+        response.setRole(user.getRole());
+        response.setAssignedRestaurantId(user.getAssignedRestaurantId());
+        response.setKnownRestaurantIds(user.getKnownRestaurantIds());
+
+        return response;
+    }
+}

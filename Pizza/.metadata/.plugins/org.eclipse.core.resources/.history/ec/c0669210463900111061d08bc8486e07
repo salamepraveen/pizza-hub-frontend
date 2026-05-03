@@ -1,0 +1,30 @@
+package com.prav.dto;
+import jakarta.validation.constraints.*;
+public class ToppingDTO {
+    private Long id;
+    @NotBlank(message = "Topping name is required")
+    @Size(min = 2, max = 50, message = "Name must be 2-50 characters")
+    private String name;
+    @NotNull(message = "Price is required")
+    @Positive(message = "Price must be greater than 0")
+    private Double price;
+	public Long getId() {
+		return id;
+	}
+	public void setId(Long id) {
+		this.id = id;
+	}
+	public String getName() {
+		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+	public Double getPrice() {
+		return price;
+	}
+	public void setPrice(Double price) {
+		this.price = price;
+	}
+
+}

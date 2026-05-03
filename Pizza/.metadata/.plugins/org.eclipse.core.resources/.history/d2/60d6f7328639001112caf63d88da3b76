@@ -1,0 +1,117 @@
+package com.prav.order.service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.prav.order.client.PizzaClient;
+import com.prav.order.model.OrderItem;
+import com.prav.order.model.PizzaOrder;
+import com.prav.order.repository.OrderItemRepository;
+import com.prav.order.repository.PizzaOrderRepository;
+
+
+@Service
+public class OrderService {
+
+    @Autowired
+    private PizzaOrderRepository repo;
+
+    @Autowired
+    private OrderItemRepository itemRepo;
+
+    @Autowired
+    private PizzaClient pizzaClient;
+
+
+    public PizzaOrder placeOrder(Long userId, Long restaurantId, List<Map<String, Object>> items) {
+        PizzaOrder order = new PizzaOrder();
+        order.setUserId(userId);
+        order.setRestaurantId(restaurantId);
+        order.setStatus("PENDING");
+        order.setOrderDate(LocalDateTime.now());
+
+        double totalAmount = 0;
+
+        PizzaOrder savedOrder = repo.save(order);
+
+        for (Map<String, Object> item : items) {
+            Long pizzaId = Long.parseLong(item.get("pizzaId").toString());
+            int quantity = Integer.parseInt(item.get("quantity").toString());
+
+            Map<String, Object> pizzaResponse = pizzaClient.getPizza(pizzaId);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> pizza = (Map<String, Object>) pizzaResponse.get("pizza");
+
+            String pizzaName = (String) pizza.get("name");
+            double basePrice = Double.parseDouble(pizza.get("basePrice").toString());
+
+            OrderItem orderItem = new OrderItem();
+            orderItem.setOrderId(savedOrder.getId());
+            orderItem.setPizzaId(pizzaId);
+            orderItem.setPizzaName(pizzaName);
+            orderItem.setQuantity(quantity);
+            orderItem.setPrice(basePrice);
+            itemRepo.save(orderItem);
+
+            totalAmount += basePrice * quantity;
+        }
+
+        savedOrder.setTotalPrice(totalAmount);
+        return repo.save(savedOrder);
+    }
+  
+    public List<Map<String, Object>> getMyOrders(Long userId) {
+        List<PizzaOrder> orders = repo.findByUserId(userId);
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+
+        for (PizzaOrder order : orders) {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", order.getId());
+            map.put("userId", order.getUserId());
+            map.put("restaurantId", order.getRestaurantId());
+            map.put("totalPrice", order.getTotalPrice());
+            map.put("status", order.getStatus());
+            map.put("orderDate", order.getOrderDate());
+            map.put("paymentMethod", order.getPaymentMethod());
+            map.put("items", itemRepo.findByOrderId(order.getId()));
+            result.add(map);
+        }
+        return result;
+    }
+
+
+    public List<Map<String, Object>> getRestaurantOrders(Long restaurantId) {
+        List<PizzaOrder> orders = repo.findByRestaurantId(restaurantId);
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+
+        for (PizzaOrder order : orders) {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", order.getId());
+            map.put("userId", order.getUserId());
+            map.put("restaurantId", order.getRestaurantId());
+            map.put("totalPrice", order.getTotalPrice());
+            map.put("status", order.getStatus());
+            map.put("orderDate", order.getOrderDate());
+            map.put("paymentMethod", order.getPaymentMethod());
+            map.put("items", itemRepo.findByOrderId(order.getId()));
+            result.add(map);
+        }
+        return result;
+    }
+
+    // UPDATE ORDER STATUS (staff/admin)
+    public PizzaOrder updateStatus(Long orderId, String status) {
+        PizzaOrder order = repo.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        order.setStatus(status);
+        return repo.save(order);
+    }
+
+   
+    public List<OrderItem> getOrderItems(Long orderId) {
+        return itemRepo.findByOrderId(orderId);
+    }
+}

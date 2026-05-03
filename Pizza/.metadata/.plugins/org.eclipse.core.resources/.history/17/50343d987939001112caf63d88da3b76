@@ -1,0 +1,349 @@
+package com.prav.user.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.prav.user.controller.UserController;
+import com.prav.user.dto.PromoteRequestDTO;
+import com.prav.user.dto.RestaurantCreateRequestDTO;
+import com.prav.user.dto.UserDTO;
+import com.prav.user.exception.*;
+import com.prav.user.model.User;
+import com.prav.user.repository.RestaurantRepository;
+import com.prav.user.repository.UserRepository;
+import com.prav.user.service.UserService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.*;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(UserController.class)
+class UserControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockBean
+    private UserService service;
+
+    @MockBean
+    private UserRepository userRepo;
+
+    @MockBean
+    private RestaurantRepository restaurantRepo;
+
+    private User testUser;
+
+    @BeforeEach
+    void setUp() {
+        testUser = new User();
+        testUser.setId(1L);
+        testUser.setUsername("prav");
+        testUser.setPassword("encoded");
+        testUser.setEmail("prav@test.com");
+        testUser.setRole("USER");
+        testUser.setAssignedRestaurantId(10L);
+        testUser.setKnownRestaurantIds(new ArrayList<>(List.of(10L)));
+    }
+
+    // ==================== POST /users/internal ====================
+
+    @Test
+    void createUser_success() throws Exception {
+        when(service.createUser(any(User.class))).thenReturn(testUser);
+
+        UserDTO dto = new UserDTO();
+        dto.setUsername("prav");
+        dto.setPassword("pass");
+
+        mockMvc.perform(post("/users/internal")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.username").value("prav"));
+    }
+
+    @Test
+    void createUser_duplicate_throws() throws Exception {
+        when(service.createUser(any(User.class)))
+                .thenThrow(new RuntimeException("User already exists with username: prav"));
+
+        UserDTO dto = new UserDTO();
+        dto.setUsername("prav");
+        dto.setPassword("pass");
+
+        mockMvc.perform(post("/users/internal")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("User already exists with username: prav"));
+    }
+
+    // ==================== GET /users/username/{username} ====================
+
+    @Test
+    void getByUsername_found() throws Exception {
+        when(userRepo.findByUsername("prav")).thenReturn(Optional.of(testUser));
+
+        mockMvc.perform(get("/users/username/prav"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("prav"));
+    }
+
+    @Test
+    void getByUsername_notFound() throws Exception {
+        when(userRepo.findByUsername("ghost")).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/users/username/ghost"))
+                .andExpect(status().isNotFound());
+    }
+
+    // ==================== GET /users/internal/{id} ====================
+
+    @Test
+    void getUserById_found() throws Exception {
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+
+        mockMvc.perform(get("/users/internal/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(1));
+    }
+
+    @Test
+    void getUserById_notFound() throws Exception {
+        when(userRepo.findById(999L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/users/internal/999"))
+                .andExpect(status().isNotFound());
+    }
+
+    // ==================== POST /users/restaurant ====================
+
+    @Test
+    void createRestaurant_success() throws Exception {
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+        when(restaurantRepo.save(any())).thenAnswer(inv -> {
+            com.prav.user.model.Restaurant r = inv.getArgument(0);
+            r.setId(10L);
+            return r;
+        });
+        doNothing().when(service).notifyNewRestaurant(anyLong());
+
+        RestaurantCreateRequestDTO dto = new RestaurantCreateRequestDTO();
+        dto.setName("Pizza Palace");
+
+        mockMvc.perform(post("/users/restaurant")
+                        .header("X-User-Id", 1)
+                        .header("X-User-Role", "USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.role").value("ADMIN"));
+    }
+
+    @Test
+    void createRestaurant_notUserRole_forbidden() throws Exception {
+        RestaurantCreateRequestDTO dto = new RestaurantCreateRequestDTO();
+        dto.setName("Pizza Palace");
+
+        mockMvc.perform(post("/users/restaurant")
+                        .header("X-User-Id", 1)
+                        .header("X-User-Role", "ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void createRestaurant_userNotFound() throws Exception {
+        when(userRepo.findById(999L)).thenReturn(Optional.empty());
+
+        RestaurantCreateRequestDTO dto = new RestaurantCreateRequestDTO();
+        dto.setName("Pizza Palace");
+
+        mockMvc.perform(post("/users/restaurant")
+                        .header("X-User-Id", 999)
+                        .header("X-User-Role", "USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isNotFound());
+    }
+
+    // ==================== GET /users/restaurants ====================
+
+    @Test
+    void getMyRestaurants_found() throws Exception {
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+
+        mockMvc.perform(get("/users/restaurants")
+                        .header("X-User-Id", 1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.role").value("USER"))
+                .andExpect(jsonPath("$.data.assignedRestaurantId").value(10));
+    }
+
+    @Test
+    void getMyRestaurants_notFound() throws Exception {
+        when(userRepo.findById(999L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/users/restaurants")
+                        .header("X-User-Id", 999))
+                .andExpect(status().isNotFound());
+    }
+
+    // ==================== GET /users/restaurant/users ====================
+
+    @Test
+    void getRestaurantUsers_success() throws Exception {
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+        when(userRepo.findByAssignedRestaurantId(10L)).thenReturn(List.of(testUser));
+
+        mockMvc.perform(get("/users/restaurant/users")
+                        .header("X-User-Id", 1)
+                        .header("X-Restaurant-Id", 10))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data[0].username").value("prav"));
+    }
+
+    @Test
+    void getRestaurantUsers_notFound() throws Exception {
+        when(userRepo.findById(999L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/users/restaurant/users")
+                        .header("X-User-Id", 999)
+                        .header("X-Restaurant-Id", 10))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getRestaurantUsers_wrongRestaurant_forbidden() throws Exception {
+        testUser.setAssignedRestaurantId(5L);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+
+        mockMvc.perform(get("/users/restaurant/users")
+                        .header("X-User-Id", 1)
+                        .header("X-Restaurant-Id", 10))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getRestaurantUsers_noAssignedRestaurant_forbidden() throws Exception {
+        testUser.setAssignedRestaurantId(null);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+
+        mockMvc.perform(get("/users/restaurant/users")
+                        .header("X-User-Id", 1)
+                        .header("X-Restaurant-Id", 10))
+                .andExpect(status().isForbidden());
+    }
+
+    // ==================== PUT /users/promote/{userId} ====================
+
+    @Test
+    void promote_success() throws Exception {
+        User promoted = new User();
+        promoted.setId(2L);
+        promoted.setUsername("gwen");
+        promoted.setRole("STAFF");
+        when(service.promoteUser(2L, 10L, "STAFF")).thenReturn(promoted);
+
+        PromoteRequestDTO dto = new PromoteRequestDTO();
+        dto.setRole("STAFF");
+
+        mockMvc.perform(put("/users/promote/2")
+                        .header("X-User-Id", 1)
+                        .header("X-User-Role", "ADMIN")
+                        .header("X-Restaurant-Id", 10)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.newRole").value("STAFF"));
+    }
+
+    @Test
+    void promote_notAdmin_forbidden() throws Exception {
+        PromoteRequestDTO dto = new PromoteRequestDTO();
+        dto.setRole("STAFF");
+
+        mockMvc.perform(put("/users/promote/2")
+                        .header("X-User-Id", 1)
+                        .header("X-User-Role", "USER")
+                        .header("X-Restaurant-Id", 10)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void promote_serviceFails_badRequest() throws Exception {
+        when(service.promoteUser(2L, 10L, "STAFF"))
+                .thenThrow(new RuntimeException("Only USER role can be promoted"));
+
+        PromoteRequestDTO dto = new PromoteRequestDTO();
+        dto.setRole("STAFF");
+
+        mockMvc.perform(put("/users/promote/2")
+                        .header("X-User-Id", 1)
+                        .header("X-User-Role", "ADMIN")
+                        .header("X-Restaurant-Id", 10)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("Only USER role can be promoted"));
+    }
+
+    // ==================== PUT /users/demote/{userId} ====================
+
+    @Test
+    void demote_success() throws Exception {
+        User demoted = new User();
+        demoted.setId(2L);
+        demoted.setUsername("gwen");
+        demoted.setRole("USER");
+        when(service.demoteToUser(2L)).thenReturn(demoted);
+
+        mockMvc.perform(put("/users/demote/2")
+                        .header("X-User-Id", 1)
+                        .header("X-User-Role", "ADMIN")
+                        .header("X-Restaurant-Id", 10))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.newRole").value("USER"))
+                .andExpect(jsonPath("$.message").value("gwen is now USER"));
+    }
+
+    @Test
+    void demote_notAdmin_forbidden() throws Exception {
+        mockMvc.perform(put("/users/demote/2")
+                        .header("X-User-Id", 1)
+                        .header("X-User-Role", "USER")
+                        .header("X-Restaurant-Id", 10))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void demote_serviceFails_badRequest() throws Exception {
+        when(service.demoteToUser(2L))
+                .thenThrow(new RuntimeException("User not found"));
+
+        mockMvc.perform(put("/users/demote/2")
+                        .header("X-User-Id", 1)
+                        .header("X-User-Role", "ADMIN")
+                        .header("X-Restaurant-Id", 10))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("User not found"));
+    }
+}

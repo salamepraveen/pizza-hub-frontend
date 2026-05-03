@@ -1,0 +1,19 @@
+
+  .otp-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f0f2f5; }
+  .otp-card { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 420px; text-align: center; }
+  .otp-card h2 { margin-bottom: 8px; color: #1a1a2e; }
+  .otp-card p { color: #666; margin-bottom: 24px; }
+  .form-group { margin-bottom: 20px; text-align: left; }
+  .form-group label { display: block; margin-bottom: 6px; font-weight: 500; color: #333; }
+  .otp-input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1.5rem; text-align: center; letter-spacing: 8px; }
+  .otp-input:focus { outline: none; border-color: #e94560; }
+  .error { color: #e94560; font-size: 0.9rem; margin-bottom: 16px; }
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+  .btn-primary { background: #e94560; color: #fff; }
+  .btn-primary:disabled { opacity: 0.6; }
+  .btn-link { background: none; color: #e94560; border: none; cursor: pointer; font-size: 0.95rem; text-decoration: underline; padding: 0; width: auto; }
+  .resend-section { margin-top: 20px; color: #666; }
+  .back-link { margin-top: 16px; }
+  .back-link a { color: #666; text-decoration: none; }
+  .back-link a:hover { color: #e94560; }
+

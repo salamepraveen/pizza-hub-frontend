@@ -1,0 +1,169 @@
+<div class="home-page">
+  <nav class="home-nav">
+    <div class="nav-content">
+      <a routerLink="/" class="logo">PizzaHub</a>
+      <div class="nav-actions">
+        <a routerLink="/login" class="nav-btn login" *ngIf="!isLoggedIn">Sign In</a>
+        <a routerLink="/signup" class="nav-btn signup" *ngIf="!isLoggedIn">Sign Up</a>
+        <a routerLink="/partner" class="nav-btn login" *ngIf="!isLoggedIn" style="margin-left: 10px; background-color: #333;">Partner</a>
+        <button class="nav-btn browse" *ngIf="isLoggedIn" (click)="getStarted()">Dashboard</button>
+        <button class="nav-btn logout" *ngIf="isLoggedIn" (click)="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-content">
+      <span class="hero-tag">Delivered Fresh & Hot</span>
+      <h1>Best Pizza in Town, Delivered to Your Door</h1>
+      <p>Choose from our wide variety of handcrafted pizzas. Customize with your favorite toppings and enjoy a delicious meal.</p>
+      
+      <!-- Integrated Search Bar -->
+      <div class="search-container">
+        <input type="text" [(ngModel)]="searchQuery" (keyup.enter)="onSearch()" placeholder="Search for your favorite pizza..." class="search-input">
+        <button class="btn-primary search-btn" (click)="onSearch()">Search</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Categories Filter (Only show when viewing a menu) -->
+  <section class="categories-section" *ngIf="viewMode === 'menu'">
+    <div class="category-filters">
+      <button *ngFor="let cat of categories" 
+              [class.active]="cat.active" 
+              (click)="filterByCategory(cat)"
+              class="category-btn">
+        {{ cat.name }}
+      </button>
+    </div>
+  </section>
+
+  <!-- Dynamic Pizzas/Restaurants Section -->
+  <section class="menu-section">
+    <!-- RESTAURANTS VIEW -->
+    <h2 class="section-title" *ngIf="viewMode === 'restaurants' && !searchQuery && trendingPizzas && trendingPizzas.length > 0">Trending Pizzas</h2>
+    <div class="pizza-grid" *ngIf="!loading && viewMode === 'restaurants' && !searchQuery">
+      <div class="pizza-card" *ngFor="let pizza of trendingPizzas" (click)="viewPizza(pizza.id)">
+        <div class="pizza-img-wrapper">
+          <img [src]="pizza.imageUrl || 'assets/default-pizza.jpg'" [alt]="pizza.name" class="pizza-img" onerror="this.src='https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800'">
+          <span class="veg-badge" [class.non-veg]="!pizza.vegetarian">
+            {{ pizza.vegetarian ? 'Veg' : 'Non-Veg' }}
+          </span>
+          <span class="trending-badge">🔥 Trending</span>
+        </div>
+        <div class="pizza-info">
+          <h3>{{ pizza.name }}</h3>
+          <p class="restaurant-name" style="font-size: 0.85em; color: #777; margin-bottom: 5px;">📍 {{ pizza.restaurantName }}</p>
+          <p class="desc">{{ pizza.description }}</p>
+          <div class="price-action">
+            <span class="price">₹{{ getMinPrice(pizza) }}</span>
+            <button class="btn-action">Order Now</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="viewMode === 'restaurants' && !searchQuery" style="margin-top: 40px;">
+      <h2 class="section-title">Our Restaurants</h2>
+      <div class="pizza-grid" *ngIf="!loading">
+        <div class="pizza-card" *ngFor="let restaurant of restaurants" (click)="selectRestaurant(restaurant)">
+          <div class="pizza-img-wrapper" style="background-color: #f4f4f4; display: flex; align-items: center; justify-content: center; height: 180px;">
+            <div style="font-size: 4rem;">🏪</div>
+          </div>
+          <div class="pizza-info">
+            <h3>{{ restaurant.name }}</h3>
+            <p class="desc" style="margin-bottom: 5px; color: #555;">📍 {{ restaurant.city }}</p>
+            <p class="desc" style="font-size: 0.8em; color: #888; margin-bottom: 15px;">{{ restaurant.address }}</p>
+            <div class="price-action" style="justify-content: center;">
+              <button class="btn-action" style="width: 100%;">View Menu</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="empty-state" *ngIf="!loading && restaurants.length === 0">
+        <p>No restaurants found. Try again later!</p>
+      </div>
+    </div>
+
+    <!-- MENU VIEW OR SEARCH RESULTS -->
+    <div *ngIf="viewMode === 'menu' || searchQuery">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 class="section-title" style="margin-bottom: 0;">{{ searchQuery ? 'Search Results' : selectedRestaurant?.name + ' Menu' }}</h2>
+        <button *ngIf="viewMode === 'menu' && !searchQuery" class="btn-primary" (click)="backToRestaurants()" style="padding: 8px 16px;">&larr; Back to Restaurants</button>
+      </div>
+      
+      <div class="pizza-grid" *ngIf="!loading">
+        <div class="pizza-card" *ngFor="let pizza of filteredPizzas" (click)="viewPizza(pizza.id)">
+          <div class="pizza-img-wrapper">
+            <img [src]="pizza.imageUrl || 'assets/default-pizza.jpg'" [alt]="pizza.name" class="pizza-img" onerror="this.src='https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800'">
+            <span class="veg-badge" [class.non-veg]="!pizza.vegetarian">
+              {{ pizza.vegetarian ? 'Veg' : 'Non-Veg' }}
+            </span>
+          </div>
+          <div class="pizza-info">
+            <h3>{{ pizza.name }}</h3>
+            <p class="restaurant-name" style="font-size: 0.85em; color: #777; margin-bottom: 5px;">📍 {{ pizza.restaurantName }}</p>
+            <p class="desc">{{ pizza.description }}</p>
+            <div class="price-action">
+              <span class="price">₹{{ getMinPrice(pizza) }}</span>
+              <button class="btn-action">Order Now</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="loading-state" *ngIf="loading">
+      <p>Loading fresh pizzas...</p>
+    </div>
+    
+    <div class="error-state" *ngIf="error">
+      <p>{{ error }}</p>
+    </div>
+
+    <div class="empty-state" *ngIf="!loading && filteredPizzas.length === 0 && (searchQuery || categories[1].active || categories[2].active)">
+      <p>No pizzas found matching your criteria. Try another search!</p>
+    </div>
+  </section>
+
+  <section class="info-banner" *ngIf="isLoggedIn && userRole === 'USER'">
+    <div class="info-content">
+      <h3>Want to manage your own restaurant?</h3>
+      <p>Partner with PizzaHub to reach more customers and manage your business effortlessly.</p>
+      <button class="btn-action" (click)="router.navigate(['/partner'])">Partner With Us</button>
+    </div>
+  </section>
+
+  <section class="info-banner admin-banner" *ngIf="isLoggedIn && (userRole === 'ADMIN' || userRole === 'STAFF')">
+    <div class="info-content">
+      <h3>Welcome back!</h3>
+      <p>Go to your dashboard to manage your restaurant.</p>
+      <button class="btn-action" (click)="getStarted()">Open Dashboard</button>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="feature-card">
+      <div class="feature-icon">🍕</div>
+      <h3>Fresh Pizzas</h3>
+      <p>Handcrafted daily with the freshest ingredients and baked to perfection.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🚀</div>
+      <h3>Fast Delivery</h3>
+      <p>Get your pizza delivered hot and fresh in under 30 minutes.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎯</div>
+      <h3>Customize</h3>
+      <p>Choose your size, crust, and toppings to make it just the way you like.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💰</div>
+      <h3>Best Prices</h3>
+      <p>Enjoy great value with combo deals and regular offers on your favorites.</p>
+    </div>
+  </section>
+
+  <footer class="home-footer"><p>2026 PizzaHub. All rights reserved.</p></footer>
+</div>

@@ -1,0 +1,53 @@
+<div id="bb">
+  <div class="layout">
+    <aside class="sidebar" [class.collapsed]="!sidebarOpen">
+      <div class="sidebar-header">
+        <span style="font-size:1.5rem">🍕</span>
+        <div class="logo"><span>Pizza</span><span class="logo-text">Palace</span></div>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item" routerLink="/admin/dashboard" routerLinkActive="active"
+          [routerLinkActiveOptions]="{exact:true}">
+          <span class="icon">📊</span> <span>Dashboard</span>
+        </a>
+        <a class="nav-item" routerLink="/admin/menu" routerLinkActive="active">
+          <span class="icon">🍕</span> <span>Menu</span>
+        </a>
+        <a class="nav-item" routerLink="/admin/orders" routerLinkActive="active">
+          <span class="icon">📦</span> <span>Orders</span>
+        </a>
+        <a class="nav-item" routerLink="/admin/staff" routerLinkActive="active">
+          <span class="icon">👥</span> <span>Staff</span>
+        </a>
+        <a class="nav-item" routerLink="/admin/settings" routerLinkActive="active">
+          <span class="icon">⚙️</span> <span>Settings</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a class="nav-item" (click)="logout()" style="cursor:pointer">
+          <span class="icon">🚪</span> <span>Logout</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="main-area" [style.margin-left.px]="sidebarOpen ? 260 : 70">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="hamburger" (click)="toggleSidebar()">☰</button>
+          <h2>Admin Panel</h2>
+        </div>
+        <div class="topbar-right">
+          <div class="user-badge">
+            <div class="user-avatar">{{ getUsername().charAt(0).toUpperCase() }}</div>
+            <span>{{ getUsername() }}</span>
+          </div>
+          <button class="btn-logout" (click)="logout()">Logout</button>
+        </div>
+      </header>
+      <main class="content">
+        <router-outlet></router-outlet>
+      </main>
+    </div>
+  </div>
+
+</div>

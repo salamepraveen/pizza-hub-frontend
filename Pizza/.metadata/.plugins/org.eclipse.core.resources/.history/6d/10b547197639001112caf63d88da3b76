@@ -1,0 +1,329 @@
+package com.prav.user.service;
+
+import com.prav.user.model.Restaurant;
+import com.prav.user.model.User;
+import com.prav.user.repository.RestaurantRepository;
+import com.prav.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class UserServiceTest {
+
+    @Mock
+    private UserRepository userRepo;
+
+    @Mock
+    private RestaurantRepository restaurantRepo;
+
+    @InjectMocks
+    private UserService userService;
+
+    private User testUser;
+    private Restaurant testRestaurant;
+
+    @BeforeEach
+    void setUp() {
+        testUser = new User();
+        testUser.setId(1L);
+        testUser.setUsername("prav");
+        testUser.setPassword("encoded123");
+        testUser.setRole("USER");
+        testUser.setKnownRestaurantIds(new ArrayList<>());
+
+        testRestaurant = new Restaurant();
+        testRestaurant.setId(10L);
+        testRestaurant.setName("Pizza Palace");
+        testRestaurant.setOwnerId(1L);
+    }
+
+    // ==================== createUser ====================
+
+    @Test
+    void createUser_newUser_returnsSavedUser() {
+        when(userRepo.findByUsername("prav")).thenReturn(Optional.empty());
+        when(restaurantRepo.findAll()).thenReturn(List.of(testRestaurant));
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            u.setId(1L);
+            return u;
+        });
+
+        User saved = userService.createUser(testUser);
+
+        assertNotNull(saved.getId());
+        assertEquals("USER", saved.getRole());
+        assertEquals(1, saved.getKnownRestaurantIds().size());
+        assertEquals(10L, saved.getKnownRestaurantIds().get(0));
+        verify(userRepo).save(any(User.class));
+    }
+
+    @Test
+    void createUser_duplicateUsername_throwsException() {
+        when(userRepo.findByUsername("prav")).thenReturn(Optional.of(testUser));
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> userService.createUser(testUser));
+
+        assertTrue(ex.getMessage().contains("User already exists with username: prav"));
+        verify(userRepo, never()).save(any());
+    }
+
+    @Test
+    void createUser_noRestaurants_emptyKnownList() {
+        when(userRepo.findByUsername("prav")).thenReturn(Optional.empty());
+        when(restaurantRepo.findAll()).thenReturn(List.of());
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            u.setId(1L);
+            return u;
+        });
+
+        User saved = userService.createUser(testUser);
+
+        assertNotNull(saved.getKnownRestaurantIds());
+        assertTrue(saved.getKnownRestaurantIds().isEmpty());
+    }
+
+    @Test
+    void createUser_multipleRestaurants_knowsAll() {
+        Restaurant r2 = new Restaurant();
+        r2.setId(20L);
+        r2.setName("Burger King");
+
+        when(userRepo.findByUsername("prav")).thenReturn(Optional.empty());
+        when(restaurantRepo.findAll()).thenReturn(List.of(testRestaurant, r2));
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            u.setId(1L);
+            return u;
+        });
+
+        User saved = userService.createUser(testUser);
+
+        assertEquals(2, saved.getKnownRestaurantIds().size());
+        assertTrue(saved.getKnownRestaurantIds().contains(10L));
+        assertTrue(saved.getKnownRestaurantIds().contains(20L));
+    }
+
+    // ==================== notifyNewRestaurant ====================
+
+    @Test
+    void notifyNewRestaurant_existingUsers_notified() {
+        User u1 = new User();
+        u1.setId(1L);
+        u1.setRole("USER");
+        u1.setKnownRestaurantIds(new ArrayList<>());
+
+        User u2 = new User();
+        u2.setId(2L);
+        u2.setRole("USER");
+        u2.setKnownRestaurantIds(new ArrayList<>(List.of(5L)));
+
+        when(userRepo.findByRole("USER")).thenReturn(List.of(u1, u2));
+
+        userService.notifyNewRestaurant(10L);
+
+        verify(userRepo, times(2)).save(any(User.class));
+        assertTrue(u1.getKnownRestaurantIds().contains(10L));
+        assertTrue(u2.getKnownRestaurantIds().contains(10L));
+    }
+
+    @Test
+    void notifyNewRestaurant_userAlreadyKnows_notAddedTwice() {
+        User u1 = new User();
+        u1.setId(1L);
+        u1.setRole("USER");
+        u1.setKnownRestaurantIds(new ArrayList<>(List.of(10L)));
+
+        when(userRepo.findByRole("USER")).thenReturn(List.of(u1));
+
+        userService.notifyNewRestaurant(10L);
+
+        verify(userRepo, never()).save(any(User.class));
+        assertEquals(1, u1.getKnownRestaurantIds().size());
+    }
+
+    @Test
+    void notifyNewRestaurant_noUsers_noSave() {
+        when(userRepo.findByRole("USER")).thenReturn(List.of());
+
+        userService.notifyNewRestaurant(10L);
+
+        verify(userRepo, never()).save(any(User.class));
+    }
+
+    @Test
+    void notifyNewRestaurant_userWithNullKnownList_initializesList() {
+        User u1 = new User();
+        u1.setId(1L);
+        u1.setRole("USER");
+        u1.setKnownRestaurantIds(null);
+
+        when(userRepo.findByRole("USER")).thenReturn(List.of(u1));
+
+        userService.notifyNewRestaurant(10L);
+
+        assertNotNull(u1.getKnownRestaurantIds());
+        assertTrue(u1.getKnownRestaurantIds().contains(10L));
+        verify(userRepo).save(u1);
+    }
+
+    // ==================== promoteUser ====================
+
+    @Test
+    void promoteUser_validUser_promotedToStaff() {
+        testUser.setRole("USER");
+        testUser.setKnownRestaurantIds(new ArrayList<>(List.of(10L)));
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+
+        User promoted = userService.promoteUser(1L, 10L, "STAFF");
+
+        assertEquals("STAFF", promoted.getRole());
+        assertEquals(10L, promoted.getAssignedRestaurantId());
+        assertEquals(List.of(10L), promoted.getKnownRestaurantIds());
+        verify(userRepo).save(testUser);
+    }
+
+    @Test
+    void promoteUser_validUser_promotedToAdmin() {
+        testUser.setRole("USER");
+        testUser.setKnownRestaurantIds(new ArrayList<>(List.of(10L)));
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+
+        User promoted = userService.promoteUser(1L, 10L, "ADMIN");
+
+        assertEquals("ADMIN", promoted.getRole());
+        assertEquals(10L, promoted.getAssignedRestaurantId());
+    }
+
+    @Test
+    void promoteUser_userNotFound_throwsException() {
+        when(userRepo.findById(999L)).thenReturn(Optional.empty());
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> userService.promoteUser(999L, 10L, "STAFF"));
+
+        assertTrue(ex.getMessage().contains("User not found"));
+    }
+
+    @Test
+    void promoteUser_alreadyStaff_throwsException() {
+        testUser.setRole("STAFF");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> userService.promoteUser(1L, 10L, "ADMIN"));
+
+        assertTrue(ex.getMessage().contains("Only USER role can be promoted"));
+        verify(userRepo, never()).save(any());
+    }
+
+    @Test
+    void promoteUser_userDoesNotKnowRestaurant_throwsException() {
+        testUser.setRole("USER");
+        testUser.setKnownRestaurantIds(new ArrayList<>(List.of(5L)));
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> userService.promoteUser(1L, 99L, "STAFF"));
+
+        assertTrue(ex.getMessage().contains("User does not know this restaurant"));
+        verify(userRepo, never()).save(any());
+    }
+
+    @Test
+    void promoteUser_nullKnownRestaurantIds_throwsException() {
+        testUser.setRole("USER");
+        testUser.setKnownRestaurantIds(null);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> userService.promoteUser(1L, 10L, "STAFF"));
+
+        assertTrue(ex.getMessage().contains("User does not know this restaurant"));
+    }
+
+    // ==================== demoteToUser ====================
+
+    @Test
+    void demoteToUser_staffUser_demotedToUser() {
+        testUser.setRole("STAFF");
+        testUser.setAssignedRestaurantId(10L);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+        when(restaurantRepo.findAll()).thenReturn(List.of(testRestaurant));
+
+        User demoted = userService.demoteToUser(1L);
+
+        assertEquals("USER", demoted.getRole());
+        assertNull(demoted.getAssignedRestaurantId());
+        assertTrue(demoted.getKnownRestaurantIds().contains(10L));
+        verify(userRepo).save(testUser);
+    }
+
+    @Test
+    void demoteToUser_adminUser_demotedToUser() {
+        testUser.setRole("ADMIN");
+        testUser.setAssignedRestaurantId(10L);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+        when(restaurantRepo.findAll()).thenReturn(List.of(testRestaurant));
+
+        User demoted = userService.demoteToUser(1L);
+
+        assertEquals("USER", demoted.getRole());
+        assertNull(demoted.getAssignedRestaurantId());
+        verify(userRepo).save(testUser);
+    }
+
+    @Test
+    void demoteToUser_userNotFound_throwsException() {
+        when(userRepo.findById(999L)).thenReturn(Optional.empty());
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> userService.demoteToUser(999L));
+
+        assertTrue(ex.getMessage().contains("User not found"));
+    }
+
+    @Test
+    void demoteToUser_noRestaurants_emptyKnownList() {
+        testUser.setRole("STAFF");
+        testUser.setAssignedRestaurantId(10L);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+        when(restaurantRepo.findAll()).thenReturn(List.of());
+
+        User demoted = userService.demoteToUser(1L);
+
+        assertEquals("USER", demoted.getRole());
+        assertNull(demoted.getAssignedRestaurantId());
+        assertTrue(demoted.getKnownRestaurantIds().isEmpty());
+    }
+
+    @Test
+    void demoteToUser_multipleRestaurants_knowsAll() {
+        Restaurant r2 = new Restaurant();
+        r2.setId(20L);
+        r2.setName("Burger King");
+
+        testUser.setRole("ADMIN");
+        testUser.setAssignedRestaurantId(10L);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(testUser));
+        when(restaurantRepo.findAll()).thenReturn(List.of(testRestaurant, r2));
+
+        User demoted = userService.demoteToUser(1L);
+
+        assertEquals(2, demoted.getKnownRestaurantIds().size());
+        assertTrue(demoted.getKnownRestaurantIds().contains(10L));
+        assertTrue(demoted.getKnownRestaurantIds().contains(20L));
+    }
+}

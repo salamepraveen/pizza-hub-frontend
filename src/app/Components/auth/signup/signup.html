@@ -1,0 +1,81 @@
+<nav class="auth-nav">
+  <div class="logo" routerLink="/">PizzaHub</div>
+  <a routerLink="/" class="back-link">← Back to Home</a>
+</nav>
+<div id="bb">
+  <div *ngIf="step === 1" class="signup-container">
+    <div class="signup-card">
+      <h2>Create Account</h2>
+      <p class="subtitle">Sign up to order delicious pizzas</p>
+      <div *ngIf="errorMessage" class="error-banner">{{ errorMessage }}</div>
+      <form #regForm="ngForm" (ngSubmit)="sendOtp()">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input id="email" type="email" #emailCtrl="ngModel" [(ngModel)]="email" name="email" required email
+            placeholder="Enter your email" />
+          <div *ngIf="emailCtrl.errors?.['required'] && emailCtrl.touched" class="field-error">Email is required</div>
+          <div *ngIf="emailCtrl.errors?.['email'] && emailCtrl.touched" class="field-error">Enter a valid email</div>
+        </div>
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input id="username" type="text" #userCtrl="ngModel" [(ngModel)]="username" name="username" required
+            minlength="3" placeholder="Choose a username" />
+          <div *ngIf="userCtrl.errors?.['required'] && userCtrl.touched" class="field-error">Username is required</div>
+          <div *ngIf="userCtrl.errors?.['minlength'] && userCtrl.touched" class="field-error">Minimum 3 characters</div>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" type="password" #passCtrl="ngModel" [(ngModel)]="password" name="password" required
+            minlength="6" placeholder="Create a password" />
+          <div *ngIf="passCtrl.errors?.['required'] && passCtrl.touched" class="field-error">Password is required</div>
+          <div *ngIf="passCtrl.errors?.['minlength'] && passCtrl.touched" class="field-error">Minimum 6 characters</div>
+        </div>
+        <div class="form-group">
+          <label for="confirmPassword">Confirm Password</label>
+          <input id="confirmPassword" type="password" #confirmCtrl="ngModel" [(ngModel)]="confirmPassword"
+            name="confirmPassword" required placeholder="Confirm your password" />
+          <div *ngIf="confirmCtrl.errors?.['required'] && confirmCtrl.touched" class="field-error">Please confirm
+            password</div>
+          <div *ngIf="password !== confirmPassword && confirmCtrl.touched" class="field-error">Passwords do not match
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" [disabled]="regForm.invalid || isLoading">
+          <span *ngIf="!isLoading">Send OTP</span>
+          <span *ngIf="isLoading">Sending...</span>
+        </button>
+      </form>
+      <p class="link-text">Already have an account? <a routerLink="/login">Sign In</a></p>
+    </div>
+  </div>
+
+  <div *ngIf="step === 2" class="signup-container">
+    <div class="signup-card">
+      <div class="otp-icon">✉️</div>
+      <h2>Verify Your Email</h2>
+      <p class="subtitle">We sent a 6-digit OTP to <strong>{{ email }}</strong></p>
+      <div *ngIf="successMessage" class="success-banner">{{ successMessage }}</div>
+      <div *ngIf="errorMessage" class="error-banner">{{ errorMessage }}</div>
+      <form #otpForm="ngForm" (ngSubmit)="verifyAndCreate()">
+        <div class="form-group">
+          <label for="otp">Enter OTP</label>
+          <input id="otp" type="text" #otpCtrl="ngModel" [(ngModel)]="otp" name="otp" required maxlength="6"
+            pattern="[0-9]{6}" placeholder="6-digit OTP" class="otp-input" />
+          <div *ngIf="otpCtrl.errors?.['required'] && otpCtrl.touched" class="field-error">OTP is required</div>
+          <div *ngIf="otpCtrl.errors?.['pattern'] && otpCtrl.touched" class="field-error">Enter only digits</div>
+        </div>
+        <button type="submit" class="btn-primary" [disabled]="otpForm.invalid || isLoading">
+          <span *ngIf="!isLoading">Verify & Create Account</span>
+          <span *ngIf="isLoading">Verifying...</span>
+        </button>
+      </form>
+      <div class="otp-actions">
+        <button class="btn-link" (click)="goBack()">← Change email</button>
+        <button class="btn-link" [disabled]="timer > 0" (click)="resendOtp()">
+          Resend OTP <span *ngIf="timer > 0">({{ timer }}s)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+</div>

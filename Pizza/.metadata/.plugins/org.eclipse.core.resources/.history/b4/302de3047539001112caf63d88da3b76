@@ -1,0 +1,5 @@
+package com.prav.user.exception;
+
+public class AccessDeniedException {
+
+}

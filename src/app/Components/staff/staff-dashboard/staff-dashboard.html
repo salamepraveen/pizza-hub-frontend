@@ -1,0 +1,74 @@
+<div class="staff-dashboard">
+  <div class="page-header">
+    <h2>Staff Dashboard</h2>
+    <p class="subtitle">Overview of today's operations</p>
+  </div>
+
+  <div *ngIf="loading" class="loading">Loading dashboard data...</div>
+  
+  <div *ngIf="!loading">
+    <div class="stats-grid">
+      <div class="stat-card revenue-card">
+        <div class="stat-icon-wrapper revenue"><div class="stat-icon">💰</div></div>
+        <div class="stat-info"><h3 class="revenue-text">₹{{ dailyRevenue | number }}</h3><p>Daily Revenue</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-wrapper placed"><div class="stat-icon">📥</div></div>
+        <div class="stat-info"><h3>{{ stats.placed }}</h3><p>New / Confirmed</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-wrapper preparing"><div class="stat-icon">👨‍🍳</div></div>
+        <div class="stat-info"><h3>{{ stats.preparing }}</h3><p>Preparing</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-wrapper delivery"><div class="stat-icon">🛵</div></div>
+        <div class="stat-info"><h3>{{ stats.outForDelivery }}</h3><p>Out for Delivery</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-wrapper delivered"><div class="stat-icon">✅</div></div>
+        <div class="stat-info"><h3>{{ stats.delivered }}</h3><p>Delivered</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-wrapper cancelled"><div class="stat-icon">❌</div></div>
+        <div class="stat-info"><h3>{{ stats.cancelled }}</h3><p>Cancelled</p></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Recent Orders</h3>
+        <button class="btn-primary" routerLink="/staff/orders">View All Orders</button>
+      </div>
+      <div class="table-container">
+        <table *ngIf="recentOrders.length > 0; else noOrders">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Customer ID</th>
+              <th>Items</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Payment</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let order of recentOrders">
+              <td><strong>#{{ order.id }}</strong></td>
+              <td>{{ userMap && userMap[order.userId] ? userMap[order.userId] + ' (ID: ' + order.userId + ')' : 'User ' + order.userId }}</td>
+              <td>{{ order.items?.length || 0 }} items</td>
+              <td class="amount-cell">₹{{ order.totalAmount || 0 }}</td>
+              <td><span class="status-badge" [style.background]="getStatusColor(order.status)">{{ order.status }}</span></td>
+              <td>
+                <span class="payment-badge" [ngClass]="{'paid': order.paymentStatus === 'COMPLETED', 'pending': order.paymentStatus === 'PENDING'}">
+                  {{ order.paymentStatus || 'PENDING' }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <ng-template #noOrders><div class="empty-state">No orders have been placed yet today.</div></ng-template>
+      </div>
+    </div>
+  </div>
+</div>
+

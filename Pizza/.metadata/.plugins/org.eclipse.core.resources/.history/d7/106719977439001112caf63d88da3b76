@@ -1,0 +1,5 @@
+package com.prav.pizza.exception;
+
+public class AccessDeniedException {
+
+}

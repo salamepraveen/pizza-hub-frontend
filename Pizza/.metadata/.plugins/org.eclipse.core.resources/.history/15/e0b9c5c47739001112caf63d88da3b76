@@ -1,0 +1,5 @@
+package com.prav.auth.service;
+
+public class OtpService {
+
+}

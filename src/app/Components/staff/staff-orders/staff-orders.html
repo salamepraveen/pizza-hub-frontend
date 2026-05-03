@@ -1,0 +1,59 @@
+<div class="staff-orders">
+  <div class="page-header"><h2>Manage Orders</h2></div>
+
+  <div class="tabs-container" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+    <button class="tab-btn" [ngStyle]="{'background': currentTab === 'ACTIVE' ? '#e94560' : 'none', 'color': currentTab === 'ACTIVE' ? '#fff' : '#888', 'border': 'none', 'padding': '8px 16px', 'border-radius': '6px', 'cursor': 'pointer', 'font-weight': '600'}" (click)="setTab('ACTIVE')">
+      Live Orders
+    </button>
+    <button class="tab-btn" [ngStyle]="{'background': currentTab === 'HISTORY' ? '#e94560' : 'none', 'color': currentTab === 'HISTORY' ? '#fff' : '#888', 'border': 'none', 'padding': '8px 16px', 'border-radius': '6px', 'cursor': 'pointer', 'font-weight': '600'}" (click)="setTab('HISTORY')">
+      Order History
+    </button>
+  </div>
+
+  <div class="filters">
+    <select [(ngModel)]="selectedStatus" (ngModelChange)="filterByStatus()" class="filter-select">
+      <option value="ALL">All Status</option>
+      <ng-container *ngIf="currentTab === 'ACTIVE'">
+        <option *ngFor="let s of ['PLACED','CONFIRMED','PREPARING','OUT_FOR_DELIVERY']" [value]="s">{{ s }}</option>
+      </ng-container>
+      <ng-container *ngIf="currentTab === 'HISTORY'">
+        <option *ngFor="let s of ['DELIVERED','CANCELLED']" [value]="s">{{ s }}</option>
+      </ng-container>
+    </select>
+  </div>
+
+  <div *ngIf="loading" class="loading">Loading orders...</div>
+
+  <div class="orders-list" *ngIf="!loading">
+    <div *ngFor="let order of filteredOrders" class="order-card">
+      <div class="order-header">
+        <div>
+          <strong>Order #{{ order.id }}</strong>
+          <span class="order-meta">User: {{ userMap ? userMap[order.userId] : order.userId }}</span>
+        </div>
+        <span class="status-badge" [style.background]="getStatusColor(order.status)">{{ order.status }}</span>
+      </div>
+      <div class="order-body">
+        <div class="order-items" *ngFor="let item of (order.items || []).slice(0,4)">
+          <div style="font-weight: 500;">{{ item.pizzaName || 'Item' }} <span style="color: #666; font-size: 0.9em;">({{ item.size || 'Regular' }})</span> x{{ item.quantity }}</div>
+          <div *ngIf="item.toppings" style="font-size: 0.85em; color: #888; margin-left: 10px; margin-bottom: 5px;">+ {{ item.toppings }}</div>
+        </div>
+        <div *ngIf="(order.items || []).length > 4" class="more-items">+{{ order.items.length - 4 }} more items</div>
+        <div class="order-footer">
+          <div>
+            <span class="order-total">₹{{ order.totalAmount || 0 }}</span>
+            <span class="pay-status" [style.color]="order.paymentStatus === 'COMPLETED' ? '#27ae60' : '#f39c12'">
+              {{ order.paymentStatus || 'PENDING' }}
+            </span>
+          </div>
+          <button *ngIf="getNextAction(order.status)" class="btn-action"
+            (click)="updateStatus(order.id, getNextAction(order.status)!.nextStatus)">
+            {{ getNextAction(order.status)!.label }}
+          </button>
+        </div>
+      </div>
+    </div>
+    <div *ngIf="filteredOrders.length === 0" class="empty-state">No orders found</div>
+  </div>
+</div>
+

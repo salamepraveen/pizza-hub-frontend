@@ -1,0 +1,112 @@
+package com.prav.user.repository;
+
+import com.prav.user.model.Restaurant;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@DataJpaTest
+class RestaurantRepositoryTest {
+
+    @Autowired
+    private TestEntityManager entityManager;
+
+    @Autowired
+    private RestaurantRepository restaurantRepository;
+
+    private Restaurant restaurant1;
+
+    @BeforeEach
+    void setUp() {
+        restaurant1 = new Restaurant();
+        restaurant1.setName("Pizza Palace");
+        restaurant1.setOwnerId(1L);
+    }
+
+    @Test
+    void save_persistsRestaurant() {
+        Restaurant saved = restaurantRepository.save(restaurant1);
+
+        assertNotNull(saved.getId());
+        assertEquals("Pizza Palace", saved.getName());
+        assertEquals(1L, saved.getOwnerId());
+    }
+
+    @Test
+    void findById_exists_returnsRestaurant() {
+        Restaurant saved = entityManager.persistAndFlush(restaurant1);
+
+        Optional<Restaurant> found = restaurantRepository.findById(saved.getId());
+
+        assertTrue(found.isPresent());
+        assertEquals("Pizza Palace", found.get().getName());
+    }
+
+    @Test
+    void findById_notExists_returnsEmpty() {
+        Optional<Restaurant> found = restaurantRepository.findById(9999L);
+        assertTrue(found.isEmpty());
+    }
+
+    @Test
+    void deleteById_removesRestaurant() {
+        Restaurant saved = entityManager.persistAndFlush(restaurant1);
+        entityManager.clear();
+
+        restaurantRepository.deleteById(saved.getId());
+
+        Optional<Restaurant> found = restaurantRepository.findById(saved.getId());
+        assertTrue(found.isEmpty());
+    }
+
+    @Test
+    void findAll_returnsAllRestaurants() {
+        entityManager.persistAndFlush(restaurant1);
+
+        Restaurant restaurant2 = new Restaurant();
+        restaurant2.setName("Burger King");
+        restaurant2.setOwnerId(2L);
+        entityManager.persistAndFlush(restaurant2);
+
+        List<Restaurant> all = restaurantRepository.findAll();
+
+        assertEquals(2, all.size());
+    }
+
+    @Test
+    void findAll_emptyDb_returnsEmptyList() {
+        List<Restaurant> all = restaurantRepository.findAll();
+        assertTrue(all.isEmpty());
+    }
+
+    @Test
+    void save_updateExistingRestaurant() {
+        Restaurant saved = entityManager.persistAndFlush(restaurant1);
+        entityManager.clear();
+
+        saved.setName("Updated Name");
+        restaurantRepository.save(saved);
+
+        Optional<Restaurant> found = restaurantRepository.findById(saved.getId());
+        assertTrue(found.isPresent());
+        assertEquals("Updated Name", found.get().getName());
+    }
+
+    @Test
+    void save_restaurantWithoutOwner_persists() {
+        Restaurant r = new Restaurant();
+        r.setName("No Owner Restaurant");
+        r.setOwnerId(null);
+
+        Restaurant saved = restaurantRepository.save(r);
+
+        assertNotNull(saved.getId());
+        assertNull(saved.getOwnerId());
+    }
+}

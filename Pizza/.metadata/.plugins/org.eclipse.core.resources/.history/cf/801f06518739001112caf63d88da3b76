@@ -1,0 +1,23 @@
+package com.prav.order.service;
+
+import com.prav.order.dto.*;
+
+import java.util.List;
+
+public interface OrderService {
+
+    // Order CRUD
+    OrderResponseDTO createOrder(OrderRequestDTO orderRequestDTO, Long userId);
+    List<OrderResponseDTO> getAllOrders();
+    List<OrderResponseDTO> getOrdersByUserId(Long userId);
+    OrderResponseDTO getOrderById(Long id);
+    List<OrderResponseDTO> getOrdersByRestaurant(Long restaurantId);
+    OrderResponseDTO updateOrderStatus(Long id, String status);
+
+    // Payment
+    PaymentOrderResponseDTO createPaymentOrder(Long orderId);
+    OrderResponseDTO verifyAndConfirmPayment(Long orderId, PaymentVerifyRequestDTO request);
+
+    // Cancel + Refund
+    OrderResponseDTO cancelOrder(Long orderId, Long userId, String reason);
+}

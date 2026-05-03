@@ -1,0 +1,223 @@
+<div class="menu-page">
+  <div class="page-header">
+    <div>
+      <h2>Pizza Menu</h2>
+      <p class="subtitle">{{ pizzas.length }} pizzas | {{ toppings.length }} toppings</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn-secondary" (click)="openToppingModal()">+ Add Topping</button>
+      <button class="btn-primary" (click)="openAddModal()">+ Add Pizza</button>
+    </div>
+  </div>
+
+  <div class="filters">
+    <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="Search pizzas..."
+      class="search-input" />
+    <label class="veg-toggle">
+      <input type="checkbox" [(ngModel)]="vegOnly" (ngModelChange)="onVegToggle()" />
+      <span class="veg-label">🟢 Veg Only</span>
+    </label>
+  </div>
+
+  <div *ngIf="success" class="success-banner" (click)="success=''" style="cursor:pointer; background-color: #4CAF50; color: white; padding: 10px; margin-bottom: 15px; border-radius: 4px; text-align: center;">{{ success }} ✕</div>
+  <div *ngIf="error" class="error-banner" (click)="error=''" style="cursor:pointer">{{ error }} ✕</div>
+  <div *ngIf="loading" class="loading">Loading menu...</div>
+
+  <div class="pizza-grid" *ngIf="!loading && filteredPizzas.length > 0">
+    <div class="pizza-card" *ngFor="let pizza of filteredPizzas" [ngStyle]="{'opacity': pizza.isAvailable === false ? '0.6' : '1'}">
+      <div class="card-top">
+        <span class="veg-badge" [class.veg]="pizza.vegetarian" [class.non-veg]="!pizza.vegetarian">
+          {{ pizza.vegetarian ? '🟢 Veg' : '🔴 Non-Veg' }}
+        </span>
+        <span class="rest-badge">Rest: {{ pizza.restaurantId }}</span>
+      </div>
+      <div class="card-image" *ngIf="pizza.imageUrl; else noImg">
+        <img [src]="pizza.imageUrl" [alt]="pizza.name" alt="pp" />
+      </div>
+      <ng-template #noImg>
+        <div class="card-image-placeholder">🍕</div>
+      </ng-template>
+      <div class="card-body">
+        <h3>{{ pizza.name }}</h3>
+        <p class="description">{{ pizza.description || 'No description' }}</p>
+        <div class="sizes-row" *ngIf="pizza.sizes && pizza.sizes.length > 0">
+          <span *ngFor="let s of pizza.sizes" class="size-chip">{{ s.size }} — ₹{{ s.price }}</span>
+        </div>
+        <div class="base-price" *ngIf="!pizza.sizes || pizza.sizes.length === 0">
+          Base: <strong>₹{{ pizza.basePrice || 0 }}</strong>
+        </div>
+        <div class="toppings-row" *ngIf="pizza.toppings && pizza.toppings.length > 0">
+          <span *ngFor="let t of pizza.toppings" class="topping-chip">{{ t.name }}</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn-sm btn-view" (click)="viewPizzaDetail(pizza)">View</button>
+          <button class="btn-sm btn-edit" (click)="openEditModal(pizza)">Edit</button>
+          <button class="btn-sm" [ngClass]="pizza.isAvailable !== false ? 'btn-danger' : 'btn-success'" (click)="togglePizzaAvailability(pizza)">
+            {{ pizza.isAvailable !== false ? 'Mark Out of Stock' : 'Mark Available' }}
+          </button>
+          <button class="btn-sm btn-delete" (click)="deletePizza(pizza.id)">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div *ngIf="!loading && filteredPizzas.length === 0" class="empty-state">
+    <p>🍕 No pizzas found.</p>
+  </div>
+
+  <div class="section-title" style="margin-top: 40px; margin-bottom: 20px; font-size: 24px; font-weight: bold; border-bottom: 2px solid #eee; padding-bottom: 10px;">Toppings Manager</div>
+
+  <div class="toppings-grid" *ngIf="!loading && toppings.length > 0" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 40px;">
+    <div class="topping-card" *ngFor="let t of toppings" [ngStyle]="{'opacity': t.isAvailable === false ? '0.6' : '1'}" style="background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee;">
+      <div>
+        <h4 style="margin: 0 0 5px 0; color: #333; font-size: 16px;">{{ t.name }} <span *ngIf="t.isAvailable === false" style="font-size: 10px; color: #dc3545;">(Out of Stock)</span></h4>
+        <span style="color: #e94560; font-weight: 600; font-size: 14px;">₹{{ t.price }}</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn-sm" [ngClass]="t.isAvailable !== false ? 'btn-danger' : 'btn-success'" (click)="toggleToppingAvailability(t)" style="padding: 5px 10px; font-size: 12px; border-radius: 4px; cursor: pointer;">
+          {{ t.isAvailable !== false ? 'Mark Out of Stock' : 'Mark Available' }}
+        </button>
+        <button class="btn-sm btn-delete" (click)="deleteTopping(t.id)" style="padding: 5px 10px; font-size: 12px; border-radius: 4px; border: 1px solid #dc3545; background: white; color: #dc3545; cursor: pointer;">Delete</button>
+      </div>
+    </div>
+  </div>
+  <div *ngIf="!loading && toppings.length === 0" class="empty-state" style="margin-bottom: 40px;">
+    <p>🧀 No toppings found. Click "+ Add Topping" to create one.</p>
+  </div>
+
+  <!-- ADD PIZZA MODAL -->
+  <div *ngIf="showAddModal" class="modal-overlay" (click)="closeAddModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Add New Pizza</h3><button class="btn-close" (click)="closeAddModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="error" class="error-banner">{{ error }}</div>
+        <div class="form-group"><label>Pizza Name *</label><input type="text" [(ngModel)]="newPizza.name"
+            placeholder="e.g. Margherita" /></div>
+        <div class="form-group"><label>Description</label><textarea [(ngModel)]="newPizza.description" rows="2"
+            placeholder="Description..."></textarea></div>
+        <div class="form-row">
+          <div class="form-group"><label>Base Price (₹) *</label><input type="number" [(ngModel)]="newPizza.price"
+              placeholder="0" /></div>
+          <div class="form-group"><label>Image URL</label><input type="text" [(ngModel)]="newPizza.imageUrl"
+              placeholder="https://..." /></div>
+        </div>
+        <label class="checkbox-label"><input type="checkbox"
+            [(ngModel)]="newPizza.vegetarian" /><span>Vegetarian</span></label>
+        <div class="section-title">Sizes & Prices</div>
+        <div class="sizes-form">
+          <div *ngFor="let s of newPizza.sizes; let i = index" class="size-input-row">
+            <span class="size-name">{{ s.size }}</span>
+            <input type="number" [(ngModel)]="newPizza.sizes[i].price" placeholder="₹0" />
+          </div>
+        </div>
+        <p class="hint">Set price to 0 to skip that size</p>
+        <div class="section-title" *ngIf="toppings.length > 0">Select Toppings</div>
+        <div class="toppings-select" *ngIf="toppings.length > 0">
+          <label *ngFor="let t of toppings" class="topping-checkbox">
+            <input type="checkbox" [checked]="isToppingSelected(t.id)" (change)="toggleToppingSelection(t.id)" />
+            <span>{{ t.name }} (₹{{ t.price }})</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeAddModal()">Cancel</button>
+        <button class="btn-primary" (click)="addPizza()">Add Pizza</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT PIZZA MODAL -->
+  <div *ngIf="showEditModal" class="modal-overlay" (click)="closeEditModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Edit Pizza</h3><button class="btn-close" (click)="closeEditModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="error" class="error-banner">{{ error }}</div>
+        <div class="form-group"><label>Name *</label><input type="text" [(ngModel)]="editPizza.name" /></div>
+        <div class="form-group"><label>Description</label><textarea [(ngModel)]="editPizza.description"
+            rows="2"></textarea></div>
+          <div class="form-row">
+            <div class="form-group"><label>Base Price (₹) *</label><input type="number" [(ngModel)]="editPizza.price" /></div>
+            <div class="form-group"><label>Image URL</label><input type="text" [(ngModel)]="editPizza.imageUrl" /></div>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label"><input type="checkbox" [(ngModel)]="editPizza.vegetarian" /><span>Vegetarian</span></label>
+          </div>
+
+          <hr style="margin: 15px 0; border: none; border-top: 1px solid #eee;" />
+          <div class="section-title" style="font-weight: 600; margin-bottom: 10px;">Sizes & Prices</div>
+          <div class="sizes-form">
+            <div *ngFor="let s of editPizza.sizes; let i = index" class="size-input-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+              <span class="size-name" style="width: 80px; font-weight: 500;">{{ s.size }}</span>
+              <input type="number" [(ngModel)]="editPizza.sizes[i].price" placeholder="₹0" style="flex: 1;" />
+            </div>
+          </div>
+          <p class="hint" style="font-size: 12px; color: #666; margin-top: 5px;">Set price to 0 to skip that size</p>
+
+        </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeEditModal()">Cancel</button>
+        <button class="btn-primary" (click)="updatePizza()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW PIZZA MODAL -->
+  <div *ngIf="showViewModal && viewPizza" class="modal-overlay" (click)="closeViewModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ viewPizza.name }}</h3><button class="btn-close" (click)="closeViewModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-grid">
+          <div class="detail-item"><span class="label">ID</span><span class="value">{{ viewPizza.id }}</span></div>
+          <div class="detail-item"><span class="label">Restaurant</span><span class="value">{{ viewPizza.restaurantId
+              }}</span></div>
+          <div class="detail-item"><span class="label">Base Price</span><span class="value"
+              style="color:#e94560;font-weight:700">₹{{ viewPizza.basePrice || 0 }}</span></div>
+          <div class="detail-item"><span class="label">Type</span><span class="value">{{ viewPizza.vegetarian ? '🟢
+              Vegetarian' : '🔴 Non-Vegetarian' }}</span></div>
+        </div>
+        <div *ngIf="viewPizza.description" class="desc-section"><span class="label">Description</span>
+          <p>{{ viewPizza.description }}</p>
+        </div>
+        <div *ngIf="viewPizza.sizes && viewPizza.sizes.length > 0">
+          <span class="label">Sizes</span>
+          <div class="sizes-detail">
+            <div *ngFor="let s of viewPizza.sizes" class="size-detail-item"><span class="size-name">{{ s.size
+                }}</span><span class="size-price">₹{{ s.price }}</span></div>
+          </div>
+        </div>
+        <div *ngIf="viewPizza.toppings && viewPizza.toppings.length > 0">
+          <span class="label">Toppings</span>
+          <div class="toppings-detail">
+            <div *ngFor="let t of viewPizza.toppings" class="topping-detail-item"><span>{{ t.name }}</span><span
+                class="topping-price">₹{{ t.price }}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD TOPPING MODAL -->
+  <div *ngIf="showToppingModal" class="modal-overlay" (click)="closeToppingModal()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Add Topping</h3><button class="btn-close" (click)="closeToppingModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="error" class="error-banner">{{ error }}</div>
+        <div class="form-group"><label>Topping Name *</label><input type="text" [(ngModel)]="newTopping.name"
+            placeholder="e.g. Extra Cheese" /></div>
+        <div class="form-group"><label>Price (₹) *</label><input type="number" [(ngModel)]="newTopping.price"
+            placeholder="0" /></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeToppingModal()">Cancel</button>
+        <button class="btn-primary" (click)="addTopping()">Add Topping</button>
+      </div>
+    </div>
+  </div>
+</div>

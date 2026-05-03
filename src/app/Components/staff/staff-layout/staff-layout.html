@@ -1,0 +1,41 @@
+<div id="bb">
+
+
+
+
+  <div class="layout">
+    <aside class="sidebar" [class.collapsed]="!sidebarOpen">
+      <div class="sidebar-header">
+        <span style="font-size:1.4rem">🍕</span>
+        <div class="logo"><span>Staff</span><span class="logo-text">Panel</span></div>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item" routerLink="/staff/dashboard" routerLinkActive="active"
+          [routerLinkActiveOptions]="{exact:true}"><span class="icon">📊</span> <span>Dashboard</span></a>
+        <a class="nav-item" routerLink="/staff/orders" routerLinkActive="active"><span class="icon">📦</span>
+          <span>Orders</span></a>
+        <a class="nav-item" routerLink="/staff/menu" routerLinkActive="active"><span class="icon">🍕</span> <span>View
+            Menu</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <a class="nav-item" (click)="logout()" style="cursor:pointer"><span class="icon">🚪</span>
+          <span>Logout</span></a>
+      </div>
+    </aside>
+    <div class="main-area" [style.margin-left.px]="sidebarOpen ? 250 : 65">
+      <header class="topbar">
+        <div class="topbar-left"><button class="hamburger" (click)="toggleSidebar()">☰</button>
+          <h2>Staff Panel</h2>
+        </div>
+        <div class="topbar-right">
+          <div class="user-badge">
+            <div class="user-avatar">{{ getUsername().charAt(0).toUpperCase() }}</div><span>{{ getUsername() }}</span>
+          </div>
+          <button class="btn-logout" (click)="logout()">Logout</button>
+        </div>
+      </header>
+      <main class="content"><router-outlet></router-outlet></main>
+    </div>
+  </div>
+
+</div>

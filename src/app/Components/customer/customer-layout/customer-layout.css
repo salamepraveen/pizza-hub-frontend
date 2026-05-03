@@ -1,0 +1,52 @@
+
+  .customer-layout{display:flex;flex-direction:column;min-height:100vh}
+  .navbar{background:#1a1a2e;color:#fff;padding:0 24px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15)}
+  .nav-container{max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px}
+  .nav-left{display:flex;align-items:center;gap:16px}
+  .logo{text-decoration:none;color:#fff}
+  .logo-text{font-size:1.4rem;font-weight:700}
+  .hamburger{display:none;background:none;border:none;color:#fff;font-size:1.5rem;cursor:pointer}
+  .nav-links{display:flex;gap:4px}
+  .nav-link{padding:8px 18px;color:#bbb;text-decoration:none;border-radius:8px;transition:all .2s;font-weight:500}
+  .nav-link:hover,.nav-link.active{color:#fff;background:rgba(255,255,255,.1)}
+  .nav-right{display:flex;align-items:center;gap:12px}
+  .create-rest-btn{padding:7px 16px;background:#27ae60;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;white-space:nowrap}
+  .create-rest-btn:hover{background:#219a52}
+  .cart-link{position:relative;text-decoration:none;color:#fff;padding:8px 12px;border-radius:8px;font-size:.95rem}
+  .cart-link:hover{background:rgba(255,255,255,.1)}
+  .cart-badge{position:absolute;top:0;right:2px;background:#e94560;color:#fff;font-size:.7rem;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700}
+  .user-name{color:#ccc;font-size:.88rem}
+  .role-badge{padding:3px 10px;border-radius:10px;font-size:.72rem;font-weight:700}
+  .role-badge.admin{background:#e94560;color:#fff}
+  .role-badge.staff{background:#0f3460;color:#fff}
+  .role-badge.user{background:#555;color:#fff}
+  .logout-btn{background:rgba(233,69,96,.2);color:#e94560;border:1px solid #e94560;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:.82rem;white-space:nowrap}
+  .logout-btn:hover{background:#e94560;color:#fff}
+  .main-content{flex:1}
+  .footer{background:#1a1a2e;color:#666;padding:20px;text-align:center}
+  .footer p{font-size:.85rem}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:200}
+  .modal{background:#fff;border-radius:16px;padding:32px;width:460px;max-width:92%}
+  .modal h2{font-size:1.4rem;color:#1a1a2e;margin-bottom:10px}
+  .modal-desc{color:#666;font-size:.9rem;margin-bottom:20px;line-height:1.5}
+  .form-group{margin-bottom:18px}
+  .form-group label{display:block;font-weight:600;color:#333;margin-bottom:8px}
+  .form-group input{width:100%;padding:12px;border:2px solid #eee;border-radius:10px;font-size:1rem;outline:none;box-sizing:border-box}
+  .form-group input:focus{border-color:#27ae60}
+  .error-msg{color:#e94560;font-size:.88rem;margin-bottom:10px}
+  .modal-actions{display:flex;gap:12px;justify-content:flex-end;margin-top:20px}
+  .btn-cancel{padding:11px 24px;background:#f0f0f0;color:#333;border:none;border-radius:10px;cursor:pointer;font-size:.95rem}
+  .btn-create{padding:11px 24px;background:#27ae60;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:.95rem;font-weight:700}
+  .btn-create:disabled{opacity:.6}
+  @media(max-width:768px){.hamburger{display:block}.nav-links{display:none;position:absolute;top:64px;left:0;right:0;background:#1a1a2e;flex-direction:column;padding:10px}.nav-links.open{display:flex}.user-name{display:none}}
+
+  .profile-modal { width: 360px; padding: 24px; }
+  .profile-modal .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 12px; margin-bottom: 16px; }
+  .profile-modal h2 { margin-bottom: 0; }
+  .btn-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #888; }
+  .profile-details { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+  .profile-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #eee; }
+  .profile-item .label { font-weight: 600; color: #555; }
+  .profile-item .value { font-weight: 700; color: #1a1a2e; }
+  .logout-btn-large { width: 100%; padding: 12px; background: rgba(233,69,96,.1); color: #e94560; border: 1px solid #e94560; border-radius: 10px; cursor: pointer; font-size: 1rem; font-weight: 700; transition: all 0.2s; }
+  .logout-btn-large:hover { background: #e94560; color: #fff; }

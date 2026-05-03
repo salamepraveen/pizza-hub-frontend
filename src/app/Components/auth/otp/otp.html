@@ -1,0 +1,27 @@
+<div class="otp-container">
+  <div class="otp-card">
+    <h2>Verify OTP</h2>
+    <p>Enter the 6-digit code sent to <strong>{{ email }}</strong></p>
+
+    <div class="form-group">
+      <label>OTP Code</label>
+      <input type="text" [(ngModel)]="otp" maxlength="6" placeholder="Enter 6-digit OTP" class="otp-input">
+    </div>
+
+    <p class="error" *ngIf="error">{{ error }}</p>
+
+    <button class="btn btn-primary" [disabled]="loading" (click)="verifyOtp()">
+      {{ loading ? 'Verifying...' : 'Verify OTP' }}
+    </button>
+
+    <div class="resend-section">
+      <p>Didn't receive the code?</p>
+      <button class="btn btn-link" (click)="resendOtp()">Resend OTP</button>
+    </div>
+
+    <div class="back-link">
+      <a routerLink="/signup">← Back to Signup</a>
+    </div>
+  </div>
+</div>
+

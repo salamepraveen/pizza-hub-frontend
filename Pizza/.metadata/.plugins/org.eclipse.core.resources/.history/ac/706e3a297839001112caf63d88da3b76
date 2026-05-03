@@ -1,0 +1,19 @@
+package com.prav.auth.client;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
+import com.prav.auth.dto.*;
+
+@FeignClient(name = "USER-SERVICE", url = "http://localhost:8081", fallbackFactory = UserClientFallback.class)
+public interface UserClient {
+
+    @PostMapping("/users/internal")
+    UserDTO createUser(@RequestBody UserDTO user);
+
+    @GetMapping("/users/username/{username}")
+    UserDTO getUserByUsername(@PathVariable String username);
+}

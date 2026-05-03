@@ -1,0 +1,220 @@
+package com.prav.user.controller;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.prav.user.dto.PromoteRequestDTO;
+import com.prav.user.dto.RestaurantCreateRequestDTO;
+import com.prav.user.dto.UserDTO;
+import com.prav.user.exception.AccessDeniedException;
+import com.prav.user.exception.UserNotFoundException;
+import com.prav.user.exception.UserOperationException;
+import com.prav.user.model.Restaurant;
+import com.prav.user.model.User;
+import com.prav.user.repository.RestaurantRepository;
+import com.prav.user.repository.UserRepository;
+import com.prav.user.service.UserService;
+import com.prav.common.dto.ApiResponse;
+
+import jakarta.validation.Valid;
+
+@RestController
+@RequestMapping("/users")
+public class UserController {
+
+    @Autowired
+    private UserService service;
+
+    @Autowired
+    private UserRepository userRepo;
+
+    @Autowired
+    private RestaurantRepository restaurantRepo;
+
+    // ==================== Internal (Feign) ====================
+
+    @PostMapping("/internal")
+    public ResponseEntity<ApiResponse<User>> createUser(@Valid @RequestBody UserDTO request) {
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(request.getPassword());
+        User savedUser = service.createUser(user);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.<User>builder()
+                        .success(true)
+                        .message("User created successfully")
+                        .data(savedUser)
+                        .build());
+    }
+
+    @GetMapping("/username/{username}")
+    public ResponseEntity<ApiResponse<User>> getByUsername(@PathVariable String username) {
+        User user = userRepo.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("username", username));
+        return ResponseEntity.ok(
+                ApiResponse.<User>builder()
+                        .success(true)
+                        .message("User retrieved successfully")
+                        .data(user)
+                        .build());
+    }
+
+    @GetMapping("/internal/{id}")
+    public ResponseEntity<ApiResponse<User>> getUserById(@PathVariable Long id) {
+        User user = userRepo.findById(id)
+                .orElseThrow(() -> new UserNotFoundException(id));
+        return ResponseEntity.ok(
+                ApiResponse.<User>builder()
+                        .success(true)
+                        .message("User retrieved successfully")
+                        .data(user)
+                        .build());
+    }
+
+    // ==================== USER — Create Restaurant ====================
+
+    @PostMapping("/restaurant")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> createRestaurant(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody RestaurantCreateRequestDTO request) {
+
+        if (!"USER".equals(role)) {
+            throw new AccessDeniedException("Only USER can create a restaurant");
+        }
+
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        Restaurant restaurant = new Restaurant();
+        restaurant.setName(request.getName());
+        restaurant.setOwnerId(userId);
+        Restaurant saved = restaurantRepo.save(restaurant);
+
+        user.setRole("ADMIN");
+        user.setAssignedRestaurantId(saved.getId());
+        user.getKnownRestaurantIds().clear();
+        user.getKnownRestaurantIds().add(saved.getId());
+        userRepo.save(user);
+
+        service.notifyNewRestaurant(saved.getId());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("restaurantId", saved.getId());
+        data.put("role", "ADMIN");
+
+        return ResponseEntity.ok(
+                ApiResponse.<Map<String, Object>>builder()
+                        .success(true)
+                        .message("Restaurant created successfully")
+                        .data(data)
+                        .build());
+    }
+
+    // ==================== USER — Get My Restaurants ====================
+
+    @GetMapping("/restaurants")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getMyRestaurants(
+            @RequestHeader("X-User-Id") Long userId) {
+
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("role", user.getRole());
+        data.put("assignedRestaurantId", user.getAssignedRestaurantId());
+        data.put("knownRestaurantIds", user.getKnownRestaurantIds());
+
+        return ResponseEntity.ok(
+                ApiResponse.<Map<String, Object>>builder()
+                        .success(true)
+                        .message("User restaurant info retrieved successfully")
+                        .data(data)
+                        .build());
+    }
+
+    // ==================== ADMIN — Get Restaurant Users ====================
+
+    @GetMapping("/restaurant/users")
+    public ResponseEntity<ApiResponse<List<User>>> getUsers(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId) {
+
+        User requestor = userRepo.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        Long targetRestaurantId = requestor.getAssignedRestaurantId();
+        if (targetRestaurantId == null || !targetRestaurantId.equals(restaurantId)) {
+            throw new AccessDeniedException("Access Denied: You do not manage this restaurant");
+        }
+
+        List<User> users = userRepo.findByAssignedRestaurantId(restaurantId);
+        return ResponseEntity.ok(
+                ApiResponse.<List<User>>builder()
+                        .success(true)
+                        .message("Restaurant users retrieved successfully")
+                        .data(users)
+                        .build());
+    }
+
+    // ==================== ADMIN — Promote User ====================
+
+    @PutMapping("/promote/{userId}")
+    public ResponseEntity<ApiResponse<Map<String, String>>> promote(
+            @PathVariable Long userId,
+            @RequestHeader("X-User-Id") Long adminId,
+            @RequestHeader("X-User-Role") String adminRole,
+            @RequestHeader("X-Restaurant-Id") Long adminRestaurantId,
+            @Valid @RequestBody PromoteRequestDTO request) {
+
+        if (!"ADMIN".equals(adminRole)) {
+            throw new AccessDeniedException("Admin privileges required");
+        }
+
+        User promoted = service.promoteUser(userId, adminRestaurantId, request.getRole());
+
+        Map<String, String> data = new HashMap<>();
+        data.put("username", promoted.getUsername());
+        data.put("newRole", promoted.getRole());
+
+        return ResponseEntity.ok(
+                ApiResponse.<Map<String, String>>builder()
+                        .success(true)
+                        .message(promoted.getUsername() + " is now " + request.getRole().toUpperCase())
+                        .data(data)
+                        .build());
+    }
+
+    // ==================== ADMIN — Demote User ====================
+
+    @PutMapping("/demote/{userId}")
+    public ResponseEntity<ApiResponse<Map<String, String>>> demote(
+            @PathVariable Long userId,
+            @RequestHeader("X-User-Id") Long adminId,
+            @RequestHeader("X-User-Role") String adminRole,
+            @RequestHeader("X-Restaurant-Id") Long adminRestaurantId) {
+
+        if (!"ADMIN".equals(adminRole)) {
+            throw new AccessDeniedException("Admin privileges required");
+        }
+
+        User demoted = service.demoteToUser(userId);
+
+        Map<String, String> data = new HashMap<>();
+        data.put("username", demoted.getUsername());
+        data.put("newRole", "USER");
+
+        return ResponseEntity.ok(
+                ApiResponse.<Map<String, String>>builder()
+                        .success(true)
+                        .message(demoted.getUsername() + " is now USER")
+                        .data(data)
+                        .build());
+    }
+}

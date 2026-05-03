@@ -1,0 +1,110 @@
+<div class="partner-page">
+  <nav class="partner-nav">
+    <div class="logo" (click)="router.navigate(['/'])">PizzaHub</div>
+    <button class="back-btn" (click)="router.navigate(['/customer'])">Back to Dashboard</button>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-content">
+      <h1 class="fade-in-up">Partner With PizzaHub</h1>
+      <p class="fade-in-up delay-1">Reach thousands of hungry customers, manage orders effortlessly, and grow your revenue.</p>
+      <a href="#join-form" class="cta-btn fade-in-up delay-2">Get Started</a>
+    </div>
+  </header>
+
+  <section class="benefits">
+    <h2 class="section-title">Why Partner With Us?</h2>
+    <div class="benefits-grid">
+      <div class="benefit-card">
+        <div class="icon">📈</div>
+        <h3>More Customers</h3>
+        <p>Access our massive user base actively looking for delicious pizza in your area.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="icon">💻</div>
+        <h3>Easy Management</h3>
+        <p>Get a dedicated admin dashboard to manage menu, staff, and track orders in real-time.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="icon">💳</div>
+        <h3>Fast Payouts</h3>
+        <p>Seamless online payment integration guarantees you get paid on time, every time.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="join-form" class="join-section">
+    
+    <!-- STEP 1: AUTHENTICATION -->
+    <div class="form-container" *ngIf="currentStep === 1">
+      <h2>{{ isLoginMode ? 'Sign In to Continue' : 'Create Partner Account' }}</h2>
+      <p>{{ isLoginMode ? 'Enter your existing PizzaHub credentials.' : 'First, let\'s set up your owner account.' }}</p>
+      
+      <div class="error-msg" *ngIf="authError">{{ authError }}</div>
+      
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" [(ngModel)]="email" placeholder="owner@restaurant.com">
+      </div>
+
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" [(ngModel)]="username" placeholder="Choose a username">
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" [(ngModel)]="password" placeholder="Enter password">
+      </div>
+      
+      <button class="submit-btn" [disabled]="authLoading" (click)="submitAuth()">
+        {{ authLoading ? 'Processing...' : (isLoginMode ? 'Sign In' : 'Create Account') }}
+      </button>
+
+      <div class="toggle-mode">
+        <p *ngIf="!isLoginMode">Already have an account? <a (click)="toggleAuthMode()">Sign In</a></p>
+        <p *ngIf="isLoginMode">Don't have an account? <a (click)="toggleAuthMode()">Register</a></p>
+      </div>
+    </div>
+
+    <!-- STEP 2: RESTAURANT DETAILS -->
+    <div class="form-container step-2" *ngIf="currentStep === 2">
+      <h2>Restaurant Details</h2>
+      <p>Tell us about your pizzeria.</p>
+      
+      <div class="error-msg" *ngIf="restaurantError">{{ restaurantError }}</div>
+      
+      <div class="form-group">
+        <label>Restaurant Name</label>
+        <input type="text" [(ngModel)]="restaurantName" placeholder="E.g. Luigi's Authentic Pizza">
+      </div>
+
+      <div class="form-group">
+        <label>City</label>
+        <input type="text" [(ngModel)]="city" placeholder="E.g. Mumbai">
+      </div>
+
+      <div class="form-group">
+        <label>Address</label>
+        <textarea [(ngModel)]="address" placeholder="Enter full restaurant address..."></textarea>
+      </div>
+      
+      <button class="submit-btn" [disabled]="restaurantLoading" (click)="submitPartnership()">
+        {{ restaurantLoading ? 'Creating Restaurant...' : 'Launch Partnership' }}
+      </button>
+    </div>
+
+    <!-- STEP 3: SUCCESS -->
+    <div class="success-container" *ngIf="currentStep === 3">
+      <div class="success-icon">✓</div>
+      <h2>Welcome Aboard!</h2>
+      <p>Your restaurant has been created successfully.</p>
+      <p>You have been promoted to ADMIN. Please log in again to access your dashboard.</p>
+      <p class="redirecting">Redirecting to login...</p>
+    </div>
+  </section>
+  
+  <footer class="partner-footer">
+    <p>© 2026 PizzaHub Partnership Program</p>
+  </footer>
+</div>

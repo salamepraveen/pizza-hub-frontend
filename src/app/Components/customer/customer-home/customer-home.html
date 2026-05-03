@@ -1,0 +1,124 @@
+<div class="customer-home">
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <h1 class="hero-title">Fresh & Delicious Pizzas</h1>
+      <p class="hero-subtitle">Handcrafted with love, delivered to your door</p>
+      <div class="hero-search">
+        <input type="text" [(ngModel)]="searchQuery" (keyup.enter)="onSearch()" placeholder="Search for your favorite pizza..." class="search-input">
+        <button class="search-btn" (click)="onSearch()">Search</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Category Filter (Only show when viewing a menu) -->
+  <section class="categories-section" *ngIf="viewMode === 'menu'">
+    <div class="categories">
+      <button *ngFor="let cat of categories"
+              class="category-btn" [class.active]="cat.active"
+              (click)="filterByCategory(cat)">
+        {{ cat.icon }} {{ cat.name }}
+      </button>
+    </div>
+  </section>
+
+  <!-- Trending Section -->
+  <section class="trending-section" *ngIf="viewMode === 'restaurants' && trendingPizzas.length > 0 && !searchQuery && getActiveCategory() === 'All'">
+    <div class="section-header">
+      <h2>Trending Pizzas</h2>
+      <p>Most popular choices</p>
+    </div>
+    <div class="pizza-grid">
+      <div class="pizza-card" *ngFor="let pizza of trendingPizzas" (click)="viewPizza(pizza.id)">
+        <div class="pizza-image">
+          <img [src]="pizza.imageUrl || 'https://placehold.co/300x200/e94560/fff?text=Pizza'" alt="pizza.name" >
+          <span class="veg-badge" *ngIf="pizza.vegetarian">Veg</span>
+          <span class="nonveg-badge" *ngIf="!pizza.vegetarian">Non-Veg</span>
+        </div>
+        <div class="pizza-info">
+          <h3>{{ pizza.name }}</h3>
+          <p class="restaurant-name" style="font-size: 0.85em; color: #777; margin-bottom: 5px;">📍 {{ pizza.restaurantName }}</p>
+          <p class="desc">{{ pizza.description }}</p>
+          <div class="price-row">
+            <span class="price">{{ getMinPrice(pizza) }}</span>
+            <span class="sizes-info" *ngIf="pizza.sizes?.length">{{ pizza.sizes.length }} sizes</span>
+          </div>
+          <button class="order-btn" (click)="viewPizza(pizza.id); $event.stopPropagation()">View Details</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Restaurants List View -->
+  <section class="menu-section" *ngIf="viewMode === 'restaurants' && !searchQuery">
+    <div class="section-header">
+      <h2>Our Restaurants</h2>
+      <p>Find a restaurant you like</p>
+    </div>
+
+    <div class="loading-spinner" *ngIf="loading">
+      <div class="spinner"></div>
+      <p>Loading restaurants...</p>
+    </div>
+
+    <p class="no-results" *ngIf="!loading && restaurants.length === 0">
+      No restaurants found. Try again later!
+    </p>
+
+    <div class="pizza-grid" *ngIf="!loading && restaurants.length > 0">
+      <div class="pizza-card" *ngFor="let restaurant of restaurants" (click)="selectRestaurant(restaurant)">
+        <div class="pizza-image" style="background-color: #f4f4f4; display: flex; align-items: center; justify-content: center; height: 180px;">
+          <div style="font-size: 4rem;">🏪</div>
+        </div>
+        <div class="pizza-info">
+          <h3>{{ restaurant.name }}</h3>
+          <p class="desc" style="margin-bottom: 5px; color: #555;">📍 {{ restaurant.city }}</p>
+          <p class="desc" style="font-size: 0.8em; color: #888; margin-bottom: 15px;">{{ restaurant.address }}</p>
+          <button class="order-btn" style="width: 100%;">View Menu</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Restaurant Menu / Search Results View -->
+  <section class="menu-section" *ngIf="viewMode === 'menu' || searchQuery">
+    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h2>{{ searchQuery ? 'Search Results' : selectedRestaurant?.name + ' Menu' }}</h2>
+        <p *ngIf="searchQuery">Showing results for "{{ searchQuery }}"</p>
+      </div>
+      <button *ngIf="viewMode === 'menu' && !searchQuery" class="search-btn" (click)="backToRestaurants()" style="padding: 8px 16px; margin: 0;">&larr; Back to Restaurants</button>
+    </div>
+
+    <div class="loading-spinner" *ngIf="loading">
+      <div class="spinner"></div>
+      <p>Loading pizzas...</p>
+    </div>
+
+    <p class="no-results" *ngIf="!loading && filteredPizzas.length === 0">
+      No pizzas found. Try a different search!
+    </p>
+
+    <div class="pizza-grid" *ngIf="!loading && filteredPizzas.length > 0">
+      <div class="pizza-card" *ngFor="let pizza of filteredPizzas" (click)="viewPizza(pizza.id)">
+        <div class="pizza-image">
+          <img [src]="pizza.imageUrl || 'https://placehold.co/300x200/e94560/fff?text=Pizza'" alt="pizza.name">
+          <span class="veg-badge" *ngIf="pizza.vegetarian">Veg</span>
+          <span class="nonveg-badge" *ngIf="!pizza.vegetarian">Non-Veg</span>
+        </div>
+        <div class="pizza-info">
+          <h3>{{ pizza.name }}</h3>
+          <p class="restaurant-name" style="font-size: 0.85em; color: #777; margin-bottom: 5px;">📍 {{ pizza.restaurantName }}</p>
+          <p class="desc">{{ pizza.description }}</p>
+          <div class="price-row">
+            <span class="price">{{ getMinPrice(pizza) }}</span>
+            <span class="sizes-info" *ngIf="pizza.sizes?.length">{{ pizza.sizes.length }} sizes available</span>
+          </div>
+          <button class="order-btn" (click)="viewPizza(pizza.id); $event.stopPropagation()">View Details</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+

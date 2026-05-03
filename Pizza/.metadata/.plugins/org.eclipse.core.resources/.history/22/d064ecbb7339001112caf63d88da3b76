@@ -1,0 +1,173 @@
+package com.prav.order.controller;
+
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.prav.order.annotation.Auditable;
+import com.prav.order.dto.OrderRequestDTO;
+import com.prav.order.dto.OrderStatusDTO;
+import com.prav.order.model.PizzaOrder;
+import com.prav.order.service.OrderService;
+import com.prav.order.service.ReportService;
+import jakarta.validation.Valid;
+
+@RestController
+@RequestMapping("/orders")
+public class OrderController {
+
+    @Autowired
+    private OrderService service;
+
+    @Autowired
+    private ReportService reportService;
+
+    // CUSTOMER
+    @PostMapping
+    @Auditable(action = "PLACE_ORDER")
+    public ResponseEntity<?> placeOrder(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody OrderRequestDTO request) {
+
+        if (!"USER".equals(role) && !"STAFF".equals(role) && !"ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access Denied");
+        }
+
+        try {
+            // Convert DTO to Map for existing service
+            List<Map<String, Object>> items = request.getItems().stream()
+                    .map(item -> {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("pizzaId", item.getPizzaId());
+                        map.put("quantity", item.getQuantity());
+                        return map;
+                    })
+                    .collect(Collectors.toList());
+
+            PizzaOrder order = service.placeOrder(userId, request.getRestaurantId(), items);
+            return ResponseEntity.status(HttpStatus.CREATED).body(order);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Order Failed: " + e.getMessage());
+        }
+    }
+
+    // CUSTOMER
+    @GetMapping("/my")
+    public ResponseEntity<?> getMyOrders(@RequestHeader("X-User-Id") Long userId) {
+        return ResponseEntity.ok(service.getMyOrders(userId));
+    }
+
+    // STAFF/ADMIN
+    @GetMapping("/restaurant")
+    public ResponseEntity<?> getRestaurantOrders(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId) {
+
+        if (!"STAFF".equals(role) && !"ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access Denied");
+        }
+
+        return ResponseEntity.ok(service.getRestaurantOrders(restaurantId));
+    }
+
+    // STAFF/ADMIN
+    @PutMapping("/{id}/status")
+    @Auditable(action = "UPDATE_ORDER_STATUS")
+    public ResponseEntity<?> updateStatus(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody OrderStatusDTO statusDTO) {
+
+        if (!"STAFF".equals(role) && !"ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access Denied");
+        }
+
+        try {
+            return ResponseEntity.ok(service.updateStatus(id, statusDTO.getStatus()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    // GET order items
+    @GetMapping("/{id}/items")
+    public ResponseEntity<?> getOrderItems(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getOrderItems(id));
+    }
+
+    // ADMIN
+    @GetMapping("/reports/revenue")
+    public ResponseEntity<Map<String, Object>> getRevenue(
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(reportService.getRevenueByRestaurant(restaurantId));
+    }
+
+    // ADMIN
+    @GetMapping("/reports/revenue/range")
+    public ResponseEntity<Map<String, Object>> getRevenueByRange(
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(reportService.getRevenueByDateRange(restaurantId, start, end));
+    }
+
+    // ADMIN
+    @GetMapping("/reports/revenue/daily")
+    public ResponseEntity<List<Map<String, Object>>> getDailyRevenue(
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId,
+            @RequestParam(defaultValue = "7") int days) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(reportService.getDailyRevenue(restaurantId, days));
+    }
+
+    // ADMIN
+    @GetMapping("/reports/pizzas/popular")
+    public ResponseEntity<List<Map<String, Object>>> getPopularPizzas(
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(reportService.getPopularPizzas(restaurantId));
+    }
+
+    // ADMIN
+    @GetMapping("/reports/customers/top")
+    public ResponseEntity<List<Map<String, Object>>> getTopCustomers(
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(reportService.getTopCustomers(restaurantId));
+    }
+
+    // STAFF/ADMIN
+    @GetMapping("/reports/orders/status")
+    public ResponseEntity<Map<String, Object>> getOrderStatusSummary(
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Restaurant-Id") Long restaurantId) {
+        if (!"ADMIN".equals(role) && !"STAFF".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(reportService.getOrderStatusSummary(restaurantId));
+    }
+}

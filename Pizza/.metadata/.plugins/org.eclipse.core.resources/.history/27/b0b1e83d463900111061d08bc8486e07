@@ -1,0 +1,12 @@
+package com.prav.pizza.repository;
+
+import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
+import com.prav.entity.Pizza;
+
+public interface PizzaRepository extends JpaRepository<Pizza, Long> {
+    List<Pizza> findByRestaurantId(Long restaurantId);
+    List<Pizza> findByNameContainingIgnoreCase(String keyword);
+    List<Pizza> findByVegetarianTrue();
+    List<Pizza> findByRestaurantIdAndNameContainingIgnoreCase(Long restaurantId, String keyword);
+}

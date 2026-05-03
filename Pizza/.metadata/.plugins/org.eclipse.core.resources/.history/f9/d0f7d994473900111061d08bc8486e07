@@ -1,0 +1,12 @@
+package com.prav.repo;
+
+import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
+import com.prav.entity.PizzaOrder;
+
+public interface PizzaOrderRepository extends JpaRepository<PizzaOrder, Long> {
+    List<PizzaOrder> findByUserId(Long userId);
+    List<PizzaOrder> findByStatus(String status);
+    List<PizzaOrder> findByUserIdAndStatus(Long userId, String status);
+    List<PizzaOrder> findByRestaurantId(Long restaurantId);
+}

@@ -1,0 +1,31 @@
+// In AuthService.java
+
+public AuthResponse signup(AuthRequest req) {
+    // ... your existing user creation logic ...
+
+    // Build and return AuthResponse instead of converting to JSON string
+    AuthResponse response = new AuthResponse();
+    response.setUserId(user.getUserId());
+    response.setUsername(user.getUsername());
+    response.setToken(jwtToken);
+    response.setRole(user.getRole());
+    response.setAssignedRestaurantId(user.getAssignedRestaurantId());
+    response.setKnownRestaurantIds(user.getKnownRestaurantIds());
+
+    return response;
+}
+
+public AuthResponse signin(AuthRequest req) {
+    // ... your existing signin logic ...
+
+    // Same thing — build AuthResponse object, return it directly
+    AuthResponse response = new AuthResponse();
+    response.setUserId(user.getUserId());
+    response.setUsername(user.getUsername());
+    response.setToken(jwtToken);
+    response.setRole(user.getRole());
+    response.setAssignedRestaurantId(user.getAssignedRestaurantId());
+    response.setKnownRestaurantIds(user.getKnownRestaurantIds());
+
+    return response;
+}

@@ -1,0 +1,13 @@
+package com.prav.order.client;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@FeignClient(name = "pizza-service", url = "http://localhost:8083")
+public interface PizzaClient {
+
+    @GetMapping("/api/pizzas/internal/{id}")
+    Map<String, Object> getPizzaById(@PathVariable Long id);
+}

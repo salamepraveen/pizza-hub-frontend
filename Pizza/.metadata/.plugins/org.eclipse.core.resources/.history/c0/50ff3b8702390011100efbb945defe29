@@ -1,0 +1,105 @@
+package com.prav.pizza;
+
+import com.prav.pizza.model.Pizza;
+import com.prav.pizza.model.Topping;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@DataJpaTest
+class PizzaRepositoryTest {
+
+    @Autowired private TestEntityManager em;
+    @Autowired private PizzaRepository repo;
+
+    private Pizza pizza;
+
+    @BeforeEach
+    void setUp() {
+        pizza = new Pizza();
+        pizza.setName("Margherita");
+        pizza.setDescription("Classic cheese");
+        pizza.setBasePrice(299.0);
+        pizza.setVegetarian(true);
+        pizza.setRestaurantId(100L);
+    }
+
+    @Test
+    void save_andFindById() {
+        Pizza saved = em.persistAndFlush(pizza);
+        Optional<Pizza> found = repo.findById(saved.getId());
+        assertTrue(found.isPresent());
+        assertEquals("Margherita", found.get().getName());
+        assertEquals(100L, found.get().getRestaurantId());
+    }
+
+    @Test
+    void findById_notFound() {
+        assertTrue(repo.findById(9999L).isEmpty());
+    }
+
+    @Test
+    void findByRestaurantId() {
+        em.persistAndFlush(pizza);
+        Pizza pizza2 = new Pizza();
+        pizza2.setName("Pepperoni");
+        pizza2.setBasePrice(499.0);
+        pizza2.setVegetarian(false);
+        pizza2.setRestaurantId(100L);
+        em.persistAndFlush(pizza2);
+
+        List<Pizza> result = repo.findByRestaurantId(100L);
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    void findByRestaurantId_noMatch() {
+        em.persistAndFlush(pizza);
+        assertTrue(repo.findByRestaurantId(999L).isEmpty());
+    }
+
+    @Test
+    void findByNameContainingIgnoreCase() {
+        em.persistAndFlush(pizza);
+        List<Pizza> result = repo.findByNameContainingIgnoreCase("marg");
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void findByVegetarianTrue() {
+        pizza.setVegetarian(true);
+        em.persistAndFlush(pizza);
+
+        Pizza nonVeg = new Pizza();
+        nonVeg.setName("Pepperoni");
+        nonVeg.setBasePrice(499.0);
+        nonVeg.setVegetarian(false);
+        nonVeg.setRestaurantId(100L);
+        em.persistAndFlush(nonVeg);
+
+        List<Pizza> result = repo.findByVegetarianTrue();
+        assertEquals(1, result.size());
+        assertEquals("Margherita", result.get(0).getName());
+    }
+
+    @Test
+    void deleteById() {
+        Pizza saved = em.persistAndFlush(pizza);
+        em.clear();
+        repo.deleteById(saved.getId());
+        assertTrue(repo.findById(saved.getId()).isEmpty());
+    }
+
+    @Test
+    void findAll() {
+        em.persistAndFlush(pizza);
+        assertEquals(1, repo.findAll().size());
+    }
+}

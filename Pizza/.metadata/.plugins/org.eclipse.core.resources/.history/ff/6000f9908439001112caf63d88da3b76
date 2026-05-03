@@ -1,0 +1,128 @@
+package com.prav.auth.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.prav.auth.client.UserClient;
+import com.prav.auth.dto.AuthRequest;
+import com.prav.auth.dto.AuthResponse;
+import com.prav.auth.dto.OtpLoginRequestDTO;
+import com.prav.auth.dto.OtpRequestDTO;
+import com.prav.auth.dto.OtpVerifyDTO;
+import com.prav.auth.dto.UserDTO;
+import com.prav.auth.exception.InvalidCredentialsException;
+import com.prav.auth.service.OtpService.SignupData;
+import com.prav.auth.util.JwtUtil;
+import com.prav.common.exception.ConflictException;
+import com.prav.common.exception.ResourceNotFoundException;
+
+@Service
+public class AuthService {
+
+    @Autowired
+    private UserClient userClient;
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    @Autowired
+    private OtpService otpService;
+
+    private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+
+    // ==================== SIGNUP (with OTP verification) ====================
+
+    public void requestSignupOtp(OtpRequestDTO req) {
+        // Check if username or email already exists
+        try {
+            userClient.getUserByUsername(req.getUsername());
+            throw new ConflictException("Username already taken: " + req.getUsername());
+        } catch (ConflictException e) {
+            throw e;
+        } catch (Exception e) {
+            // 404 means user doesn't exist — good
+            if (e.getMessage() == null || !e.getMessage().contains("404")) {
+                throw new RuntimeException("Error checking username: " + e.getMessage(), e);
+            }
+        }
+
+        // Generate and send OTP
+        otpService.generateSignupOtp(req.getEmail(), req.getUsername(), req.getPassword());
+    }
+
+    public AuthResponse verifySignupAndCreate(OtpVerifyDTO req) {
+        // Verify OTP and get pending signup data
+        SignupData signupData = otpService.verifySignupOtp(req.getEmail(), req.getOtp());
+
+        // Create user via user-service
+        UserDTO user = new UserDTO();
+        user.setUsername(signupData.getUsername());
+        user.setPassword(encoder.encode(signupData.getPassword()));
+        user.setEmail(signupData.getEmail());
+        UserDTO createdUser = userClient.createUser(user);
+
+        // Generate token
+        String token = jwtUtil.generateToken(createdUser);
+
+        return buildAuthResponse(createdUser, token);
+    }
+
+    // ==================== SIGNIN — Username + Password ====================
+
+    public AuthResponse signin(AuthRequest req) {
+        UserDTO user = userClient.getUserByUsername(req.getUsername());
+
+        if (!encoder.matches(req.getPassword(), user.getPassword())) {
+            throw new InvalidCredentialsException("Invalid credentials");
+        }
+
+        String token = jwtUtil.generateToken(user);
+        return buildAuthResponse(user, token);
+    }
+
+    // ==================== SIGNIN — OTP Login ====================
+
+    public void requestLoginOtp(OtpLoginRequestDTO req) {
+        // Check if user exists and get their email
+        UserDTO user;
+        try {
+            user = userClient.getUserByUsername(req.getUsername());
+        } catch (Exception e) {
+            throw new ResourceNotFoundException("User", "username", req.getUsername());
+        }
+
+        if (user.getEmail() == null || user.getEmail().isEmpty()) {
+            throw new RuntimeException("No email associated with this account. Use password login.");
+        }
+
+        // Generate and send OTP
+        otpService.generateLoginOtp(user.getEmail());
+    }
+
+    public AuthResponse verifyLoginOtp(OtpVerifyDTO req) {
+        // Verify OTP
+        otpService.verifyLoginOtp(req.getEmail(), req.getOtp());
+
+        // Get user by email — need to find user somehow
+        // We'll look up by email through user-service
+        // (You may need to add a findByEmail endpoint in user-service)
+        UserDTO user = userClient.getUserByEmail(req.getEmail());
+
+        String token = jwtUtil.generateToken(user);
+        return buildAuthResponse(user, token);
+    }
+
+    // ==================== HELPERS ====================
+
+    private AuthResponse buildAuthResponse(UserDTO user, String token) {
+        AuthResponse response = new AuthResponse();
+        response.setUserId(user.getId());
+        response.setUsername(user.getUsername());
+        response.setToken(token);
+        response.setRole(user.getRole());
+        response.setAssignedRestaurantId(user.getAssignedRestaurantId());
+        response.setKnownRestaurantIds(user.getKnownRestaurantIds());
+        return response;
+    }
+}

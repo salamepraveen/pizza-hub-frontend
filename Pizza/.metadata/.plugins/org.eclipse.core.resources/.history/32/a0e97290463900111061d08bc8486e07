@@ -1,0 +1,226 @@
+package com.prav.pizza.service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class PizzaService {
+
+    @Autowired
+    private PizzaRepository pizzaRepo;
+
+    @Autowired
+    private PizzaSizeRepository sizeRepo;
+
+    @Autowired
+    private ToppingRepository toppingRepo;
+
+   
+    
+  
+ // PIZZA CRUD
+    public PizzaDTO createPizza(Long restaurantId, Map<String, Object> body) {
+        Pizza pizza = new Pizza();
+        pizza.setName((String) body.get("name"));
+        pizza.setDescription((String) body.get("description"));
+        pizza.setImageUrl((String) body.get("imageUrl"));
+        pizza.setVegetarian(body.get("vegetarian") != null ? (Boolean) body.get("vegetarian") : false);
+        pizza.setBasePrice(body.get("price") != null ? Double.parseDouble(body.get("price").toString()) : 0.0);
+        pizza.setRestaurantId(restaurantId);
+
+        
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> sizes = (List<Map<String, Object>>) body.get("sizes");
+        if (sizes != null) {
+            for (Map<String, Object> s : sizes) {
+                PizzaSize size = new PizzaSize();
+                size.setSize((String) s.get("size"));
+                size.setPrice(Double.parseDouble(s.get("price").toString()));
+                size.setPizza(pizza);
+                pizza.getSizes().add(size);  
+            }
+        }
+
+       
+        pizza = pizzaRepo.save(pizza);
+
+        
+        @SuppressWarnings("unchecked")
+        List<Long> toppingIds = (List<Long>) body.get("toppingIds");
+        if (toppingIds != null) {
+            List<Topping> toppings = toppingRepo.findAllById(toppingIds);
+            pizza.setToppings(toppings);
+            pizzaRepo.save(pizza);
+        }
+
+        return toDTO(pizzaRepo.findById(pizza.getId()).orElseThrow());
+    }
+
+    public PizzaDTO updatePizza(Long pizzaId, Long restaurantId, Map<String, Object> body) {
+        Pizza pizza = pizzaRepo.findById(pizzaId)
+                .orElseThrow(() -> new RuntimeException("Pizza not found"));
+
+        if (!pizza.getRestaurantId().equals(restaurantId)) {
+            throw new RuntimeException("You can only edit your own restaurant's pizzas");
+        }
+
+        if (body.containsKey("name")) pizza.setName((String) body.get("name"));
+        if (body.containsKey("description")) pizza.setDescription((String) body.get("description"));
+        if (body.containsKey("imageUrl")) pizza.setImageUrl((String) body.get("imageUrl"));
+        if (body.containsKey("vegetarian")) pizza.setVegetarian((Boolean) body.get("vegetarian"));
+
+        return toDTO(pizzaRepo.save(pizza));
+    }
+
+    public void deletePizza(Long pizzaId, Long restaurantId) {
+        Pizza pizza = pizzaRepo.findById(pizzaId)
+                .orElseThrow(() -> new RuntimeException("Pizza not found"));
+
+        if (!pizza.getRestaurantId().equals(restaurantId)) {
+            throw new RuntimeException("You can only delete your own restaurant's pizzas");
+        }
+
+        pizzaRepo.delete(pizza);
+    }
+
+   
+  
+   
+    // MENU (Public)
+    public List<PizzaDTO> getAllPizzas() {
+        return pizzaRepo.findAll().stream().map(this::toDTO).collect(Collectors.toList());
+    }
+
+    public List<PizzaDTO> getPizzasByRestaurant(Long restaurantId) {
+        return pizzaRepo.findByRestaurantId(restaurantId).stream()
+                .map(this::toDTO).collect(Collectors.toList());
+    }
+
+    public PizzaDTO getPizzaById(Long id) {
+        return toDTO(pizzaRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Pizza not found")));
+    }
+
+    public List<PizzaDTO> searchPizzas(String keyword) {
+        return pizzaRepo.findByNameContainingIgnoreCase(keyword).stream()
+                .map(this::toDTO).collect(Collectors.toList());
+    }
+
+    public List<PizzaDTO> getVegetarianPizzas() {
+        return pizzaRepo.findByVegetarianTrue().stream()
+                .map(this::toDTO).collect(Collectors.toList());
+    }
+
+ 
+  
+ 
+    // PIZZA SIZE MANAGEMENT
+    public PizzaSizeDTO addSize(Long pizzaId, Long restaurantId, Map<String, Object> body) {
+        Pizza pizza = pizzaRepo.findById(pizzaId)
+                .orElseThrow(() -> new RuntimeException("Pizza not found"));
+
+        if (!pizza.getRestaurantId().equals(restaurantId)) {
+            throw new RuntimeException("Access Denied");
+        }
+
+        PizzaSize size = new PizzaSize();
+        size.setSize((String) body.get("size"));
+        size.setPrice(Double.parseDouble(body.get("price").toString()));
+        size.setPizza(pizza);
+        pizza.getSizes().add(size);
+        pizzaRepo.save(pizza);  
+        return toSizeDTO(size);
+    }
+
+    public void deleteSize(Long sizeId, Long restaurantId) {
+        PizzaSize size = sizeRepo.findById(sizeId)
+                .orElseThrow(() -> new RuntimeException("Size not found"));
+
+        if (!size.getPizza().getRestaurantId().equals(restaurantId)) {
+            throw new RuntimeException("Access Denied");
+        }
+
+        sizeRepo.delete(size);
+    }
+
+   
+    
+   
+ // TOPPING CRUD
+    public ToppingDTO createTopping(Long restaurantId, Map<String, Object> body) {
+        Topping topping = new Topping();
+        topping.setName((String) body.get("name"));
+        topping.setPrice(Double.parseDouble(body.get("price").toString()));
+        topping.setRestaurantId(restaurantId);
+        return toToppingDTO(toppingRepo.save(topping));
+    }
+
+    public List<ToppingDTO> getAllToppings() {
+        return toppingRepo.findAll().stream().map(this::toToppingDTO).collect(Collectors.toList());
+    }
+
+    public List<ToppingDTO> getToppingsByRestaurant(Long restaurantId) {
+        return toppingRepo.findByRestaurantId(restaurantId).stream()
+                .map(this::toToppingDTO).collect(Collectors.toList());
+    }
+
+    public void deleteTopping(Long toppingId, Long restaurantId) {
+        Topping topping = toppingRepo.findById(toppingId)
+                .orElseThrow(() -> new RuntimeException("Topping not found"));
+
+        if (!topping.getRestaurantId().equals(restaurantId)) {
+            throw new RuntimeException("Access Denied");
+        }
+
+        toppingRepo.delete(topping);
+    }
+
+  
+   
+  
+    // DTO
+    private PizzaDTO toDTO(Pizza pizza) {
+        PizzaDTO dto = new PizzaDTO();
+        dto.setId(pizza.getId());
+        dto.setName(pizza.getName());
+        dto.setDescription(pizza.getDescription());
+        dto.setImageUrl(pizza.getImageUrl());
+        dto.setVegetarian(pizza.getVegetarian());
+        dto.setRestaurantId(pizza.getRestaurantId());
+        dto.setBasePrice(pizza.getBasePrice());    
+
+        List<PizzaSizeDTO> sizeDTOs = new ArrayList<>();
+        for (PizzaSize s : pizza.getSizes()) {
+            sizeDTOs.add(toSizeDTO(s));
+        }
+        dto.setSizes(sizeDTOs);
+
+        List<ToppingDTO> toppingDTOs = new ArrayList<>();
+        for (Topping t : pizza.getToppings()) {
+            toppingDTOs.add(toToppingDTO(t));
+        }
+        dto.setToppings(toppingDTOs);
+
+        return dto;
+    }
+
+    private PizzaSizeDTO toSizeDTO(PizzaSize size) {
+        PizzaSizeDTO dto = new PizzaSizeDTO();
+        dto.setId(size.getId());
+        dto.setSize(size.getSize());
+        dto.setPrice(size.getPrice());
+        return dto;
+    }
+
+    private ToppingDTO toToppingDTO(Topping topping) {
+        ToppingDTO dto = new ToppingDTO();
+        dto.setId(topping.getId());
+        dto.setName(topping.getName());
+        dto.setPrice(topping.getPrice());
+        return dto;
+    }
+}

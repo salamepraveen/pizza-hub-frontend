@@ -1,0 +1,27 @@
+  *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f0f2f5}
+    .layout{display:flex;min-height:100vh}
+    .sidebar{width:250px;background:#16213e;color:white;display:flex;flex-direction:column;position:fixed;height:100vh;z-index:50;transition:width .3s}
+    .sidebar.collapsed{width:65px}
+    .sidebar-header{padding:18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.1)}
+    .sidebar-header .logo{font-size:1.3rem;font-weight:700;white-space:nowrap}
+    .sidebar-header .logo span{color:#e94560}
+    .sidebar.collapsed .logo-text{display:none}
+    .sidebar-nav{flex:1;padding:15px 0}
+    .nav-item{display:flex;align-items:center;gap:12px;padding:11px 18px;color:#b0b0c0;text-decoration:none;transition:all .2s;font-size:.95rem;white-space:nowrap}
+    .nav-item:hover{background:rgba(233,69,96,.1);color:white}
+    .nav-item.active{background:rgba(233,69,96,.15);color:#e94560;border-right:3px solid #e94560}
+    .nav-item .icon{font-size:1.15rem;min-width:24px;text-align:center}
+    .sidebar.collapsed .nav-item span{display:none}
+    .sidebar-footer{padding:15px 18px;border-top:1px solid rgba(255,255,255,.1)}
+    .main-area{flex:1;display:flex;flex-direction:column;min-height:100vh;transition:margin-left .3s}
+    .topbar{background:white;padding:14px 28px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,.08);position:sticky;top:0;z-index:40}
+    .topbar-left{display:flex;align-items:center;gap:14px}
+    .topbar-left h2{font-size:1.15rem;color:#1a1a2e}
+    .hamburger{background:none;border:none;font-size:1.3rem;cursor:pointer;color:#555}
+    .topbar-right{display:flex;align-items:center;gap:14px}
+    .user-badge{display:flex;align-items:center;gap:8px;background:#f0f2f5;padding:6px 14px;border-radius:20px;font-size:.88rem}
+    .user-avatar{width:30px;height:30px;background:#3498db;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:.8rem}
+    .btn-logout{background:none;border:1px solid #ff6b6b;color:#ff6b6b;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:.83rem;font-weight:600}
+    .btn-logout:hover{background:#ff6b6b;color:white}
+    .content{flex:1;padding:24px 28px}

@@ -1,0 +1,30 @@
+package com.prav.aspect;
+
+import com.prav.annotation.Auditable;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+@Aspect
+@Component
+public class AuditAspect {
+
+    private static final Logger log = LoggerFactory.getLogger(AuditAspect.class);
+
+    @Around("@annotation(auditable)")
+    public Object audit(ProceedingJoinPoint joinPoint, Auditable auditable) throws Throwable {
+        String action = auditable.action();
+        String method = joinPoint.getSignature().getName();
+        Object[] args = joinPoint.getArgs();
+
+        log.info("[AUDIT] Action: {} | Method: {} | Args: {}", action, method, args);
+
+        Object result = joinPoint.proceed();
+
+        log.info("[AUDIT] Action: {} | Method: {} | Status: SUCCESS", action, method);
+        return result;
+    }
+}

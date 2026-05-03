@@ -1,0 +1,62 @@
+package com.prav.auth.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.prav.auth.client.UserClient;
+import com.prav.auth.dto.AuthRequest;
+import com.prav.auth.dto.AuthResponse;
+import com.prav.auth.dto.UserDTO;
+import com.prav.auth.util.JwtUtil;
+
+@Service
+public class AuthService {
+
+    @Autowired
+    private UserClient userClient;
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+
+    public AuthResponse signup(AuthRequest req) {
+        UserDTO user = new UserDTO();
+        user.setUsername(req.getUsername());
+        user.setPassword(encoder.encode(req.getPassword()));
+        UserDTO createdUser = userClient.createUser(user);
+
+        String token = jwtUtil.generateToken(createdUser);
+
+        AuthResponse response = new AuthResponse();
+        response.setUserId(createdUser.getId());
+        response.setUsername(createdUser.getUsername());
+        response.setToken(token);
+        response.setRole(createdUser.getRole());
+        response.setAssignedRestaurantId(createdUser.getAssignedRestaurantId());
+        response.setKnownRestaurantIds(createdUser.getKnownRestaurantIds());
+
+        return response;
+    }
+
+    public AuthResponse signin(AuthRequest req) {
+        UserDTO user = userClient.getUserByUsername(req.getUsername());
+
+        if (!encoder.matches(req.getPassword(), user.getPassword())) {
+            throw new RuntimeException("Invalid credentials");
+        }
+
+        String token = jwtUtil.generateToken(user);
+
+        AuthResponse response = new AuthResponse();
+        response.setUserId(user.getId());
+        response.setUsername(user.getUsername());
+        response.setToken(token);
+        response.setRole(user.getRole());
+        response.setAssignedRestaurantId(user.getAssignedRestaurantId());
+        response.setKnownRestaurantIds(user.getKnownRestaurantIds());
+
+        return response;
+    }
+}

@@ -1,0 +1,167 @@
+package com.prav.user.repository;
+
+import com.prav.user.model.User;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@DataJpaTest
+class UserRepositoryTest {
+
+    @Autowired
+    private TestEntityManager em;
+
+    @Autowired
+    private UserRepository repo;
+
+    private User user;
+
+    @BeforeEach
+    void setUp() {
+        user = new User();
+        user.setUsername("prav");
+        user.setPassword("encoded");
+        user.setEmail("prav@test.com");
+        user.setRole("USER");
+        user.setKnownRestaurantIds(new ArrayList<>());
+    }
+
+    // ==================== findByUsername ====================
+
+    @Test
+    void findByUsername_exists() {
+        em.persistAndFlush(user);
+        Optional<User> found = repo.findByUsername("prav");
+        assertTrue(found.isPresent());
+        assertEquals("prav", found.get().getUsername());
+    }
+
+    @Test
+    void findByUsername_notExists() {
+        assertTrue(repo.findByUsername("ghost").isEmpty());
+    }
+
+    // ==================== findByEmail ====================
+
+    @Test
+    void findByEmail_exists() {
+        em.persistAndFlush(user);
+        Optional<User> found = repo.findByEmail("prav@test.com");
+        assertTrue(found.isPresent());
+        assertEquals("prav@test.com", found.get().getEmail());
+    }
+
+    @Test
+    void findByEmail_notExists() {
+        assertTrue(repo.findByEmail("nope@test.com").isEmpty());
+    }
+
+    // ==================== findByAssignedRestaurantId ====================
+
+    @Test
+    void findByAssignedRestaurantId_match() {
+        user.setAssignedRestaurantId(10L);
+        em.persistAndFlush(user);
+
+        List<User> users = repo.findByAssignedRestaurantId(10L);
+        assertEquals(1, users.size());
+        assertEquals("prav", users.get(0).getUsername());
+    }
+
+    @Test
+    void findByAssignedRestaurantId_noMatch() {
+        em.persistAndFlush(user);
+        assertTrue(repo.findByAssignedRestaurantId(999L).isEmpty());
+    }
+
+    // ==================== findByRole ====================
+
+    @Test
+    void findByRole_match() {
+        em.persistAndFlush(user);
+        List<User> users = repo.findByRole("USER");
+        assertEquals(1, users.size());
+    }
+
+    @Test
+    void findByRole_noMatch() {
+        em.persistAndFlush(user);
+        assertTrue(repo.findByRole("ADMIN").isEmpty());
+    }
+
+    // ==================== findByRoleAndKnownRestaurantIdsContaining ====================
+
+    @Test
+    void findByRoleAndKnownRestaurant_contains() {
+        user.setKnownRestaurantIds(new ArrayList<>(List.of(10L, 20L)));
+        em.persistAndFlush(user);
+
+        List<User> users = repo.findByRoleAndKnownRestaurantIdsContaining("USER", 10L);
+        assertEquals(1, users.size());
+    }
+
+    @Test
+    void findByRoleAndKnownRestaurant_wrongRole() {
+        user.setKnownRestaurantIds(new ArrayList<>(List.of(10L)));
+        em.persistAndFlush(user);
+
+        List<User> users = repo.findByRoleAndKnownRestaurantIdsContaining("ADMIN", 10L);
+        assertTrue(users.isEmpty());
+    }
+
+    @Test
+    void findByRoleAndKnownRestaurant_notInList() {
+        user.setKnownRestaurantIds(new ArrayList<>(List.of(10L)));
+        em.persistAndFlush(user);
+
+        List<User> users = repo.findByRoleAndKnownRestaurantIdsContaining("USER", 99L);
+        assertTrue(users.isEmpty());
+    }
+
+    // ==================== save / findById / deleteById ====================
+
+    @Test
+    void save_andFindById() {
+        User saved = repo.save(user);
+        Optional<User> found = repo.findById(saved.getId());
+        assertTrue(found.isPresent());
+        assertEquals("prav", found.get().getUsername());
+        assertEquals("prav@test.com", found.get().getEmail());
+    }
+
+    @Test
+    void findById_notExists() {
+        assertTrue(repo.findById(9999L).isEmpty());
+    }
+
+    @Test
+    void deleteById() {
+        User saved = em.persistAndFlush(user);
+        em.clear();
+        repo.deleteById(saved.getId());
+        assertTrue(repo.findById(saved.getId()).isEmpty());
+    }
+
+    @Test
+    void save_updatesExisting() {
+        User saved = em.persistAndFlush(user);
+        em.clear();
+        saved.setUsername("newname");
+        repo.save(saved);
+        assertEquals("newname", repo.findById(saved.getId()).get().getUsername());
+    }
+
+    @Test
+    void save_userWithAssignedRestaurant() {
+        user.setAssignedRestaurantId(10L);
+        User saved = em.persistAndFlush(user);
+        em.clear();
+        assertEquals(10L, repo.findById(saved.getId()).get().getAssignedRestaurantId());
+    }
+}

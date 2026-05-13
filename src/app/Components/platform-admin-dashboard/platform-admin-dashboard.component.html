@@ -1,0 +1,187 @@
+<div class="min-h-screen text-slate-200 font-sans p-8 flex justify-center relative bg-cover bg-center bg-fixed bg-no-repeat" style="background-image: url('assets/home-customer/pizzabg.png');">
+  <!-- Dark glass overlay for contrast -->
+  <div class="absolute inset-0 bg-[#0f172a]/80 backdrop-blur-sm z-0"></div>
+  
+  <div class="max-w-6xl w-full z-10 relative">
+    
+    <!-- Header Area -->
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-10">
+      <div>
+        <h1 class="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">
+          Pizza-hub Platform
+        </h1>
+        <p class="text-slate-400 mt-2 text-sm font-medium">Manage all users and restaurants across the ecosystem</p>
+      </div>
+
+      <!-- Sleek Tabs -->
+      <div class="mt-6 md:mt-0 flex bg-slate-800/50 backdrop-blur-md p-1 rounded-full border border-slate-700/50 shadow-inner">
+        <button 
+          (click)="setTab('users')" 
+          [class.bg-blue-500]="activeTab === 'users'"
+          [class.text-white]="activeTab === 'users'"
+          [class.shadow-md]="activeTab === 'users'"
+          [class.text-slate-400]="activeTab !== 'users'"
+          [class.hover:text-slate-200]="activeTab !== 'users'"
+          class="px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 ease-out outline-none">
+          Users
+        </button>
+        <button 
+          (click)="setTab('restaurants')" 
+          [class.bg-blue-500]="activeTab === 'restaurants'"
+          [class.text-white]="activeTab === 'restaurants'"
+          [class.shadow-md]="activeTab === 'restaurants'"
+          [class.text-slate-400]="activeTab !== 'restaurants'"
+          [class.hover:text-slate-200]="activeTab !== 'restaurants'"
+          class="px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 ease-out outline-none">
+          Restaurants
+        </button>
+      </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="mb-6 relative">
+      <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+        <svg class="h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+        </svg>
+      </div>
+      <input 
+        type="text" 
+        [(ngModel)]="searchQuery" 
+        [placeholder]="activeTab === 'users' ? 'Search users by name or email...' : 'Search restaurants by name, city, or address...'"
+        class="block w-full pl-11 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-sm text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-md"
+      >
+    </div>
+
+    <!-- Error Message -->
+    <div *ngIf="error" class="mb-6 flex items-center p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400">
+      <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      {{ error }}
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-700/50 overflow-hidden relative min-h-[400px]">
+      
+      <!-- Loading Spinner overlay -->
+      <div *ngIf="loading" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-all">
+        <div class="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin shadow-[0_0_15px_rgba(59,130,246,0.5)]"></div>
+        <p class="mt-4 text-sm font-medium text-blue-400 animate-pulse">Loading data...</p>
+      </div>
+
+      <!-- Users Table -->
+      <div *ngIf="activeTab === 'users'" class="overflow-x-auto transition-opacity duration-300" [class.opacity-40]="loading" [class.pointer-events-none]="loading">
+        <table class="w-full text-left whitespace-nowrap">
+          <thead>
+            <tr class="bg-slate-800/80 border-b border-slate-700/50 text-xs uppercase tracking-widest text-slate-400 font-semibold">
+              <th class="py-5 px-6">User</th>
+              <th class="py-5 px-6">Role</th>
+              <th class="py-5 px-6">Status</th>
+              <th class="py-5 px-6 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-700/30">
+            <tr *ngFor="let user of filteredUsers" class="group hover:bg-slate-700/20 transition-all duration-300">
+              <td class="py-4 px-6">
+                <div class="flex items-center space-x-4">
+                  <div class="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/30">
+                    {{ user?.username?.charAt(0)?.toUpperCase() || 'U' }}
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">{{ user?.username || 'Unknown' }}</p>
+                    <p class="text-xs text-slate-400">{{ user?.email || 'No email' }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="py-4 px-6">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-700/50 text-slate-300 border border-slate-600/50">
+                  {{ user.role }}
+                </span>
+              </td>
+              <td class="py-4 px-6">
+                <span *ngIf="!user.banned" class="inline-flex items-center space-x-1.5">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+                  <span class="text-xs font-medium text-emerald-400">Active</span>
+                </span>
+                <span *ngIf="user.banned" class="inline-flex items-center space-x-1.5">
+                  <span class="w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]"></span>
+                  <span class="text-xs font-medium text-rose-400">Banned</span>
+                </span>
+              </td>
+              <td class="py-4 px-6 text-right">
+                <button 
+                  *ngIf="user.role !== 'PLATFORM_ADMIN'"
+                  (click)="toggleUserBan(user)"
+                  [ngClass]="user.banned 
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:shadow-[0_0_15px_rgba(16,185,129,0.4)]' 
+                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500 hover:text-white shadow-[0_0_10px_rgba(244,63,94,0.1)] hover:shadow-[0_0_15px_rgba(244,63,94,0.4)]'"
+                  class="px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ease-out outline-none">
+                  {{ user.banned ? 'Restore Access' : 'Suspend User' }}
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="filteredUsers.length === 0 && !loading">
+              <td colspan="4" class="py-12 text-center text-slate-500">No users found matching your search.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Restaurants Table -->
+      <div *ngIf="activeTab === 'restaurants'" class="overflow-x-auto transition-opacity duration-300" [class.opacity-40]="loading" [class.pointer-events-none]="loading">
+        <table class="w-full text-left whitespace-nowrap">
+          <thead>
+            <tr class="bg-slate-800/80 border-b border-slate-700/50 text-xs uppercase tracking-widest text-slate-400 font-semibold">
+              <th class="py-5 px-6">Restaurant</th>
+              <th class="py-5 px-6">Location</th>
+              <th class="py-5 px-6">Status</th>
+              <th class="py-5 px-6 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-700/30">
+            <tr *ngFor="let restaurant of filteredRestaurants" class="group hover:bg-slate-700/20 transition-all duration-300">
+              <td class="py-4 px-6">
+                <div class="flex items-center space-x-4">
+                  <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-lg shadow-orange-500/30">
+                    {{ restaurant?.name?.charAt(0)?.toUpperCase() || 'R' }}
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium text-white group-hover:text-amber-400 transition-colors">{{ restaurant?.name || 'Unknown' }}</p>
+                    <p class="text-xs text-slate-400">ID: #{{ restaurant?.id }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="py-4 px-6">
+                <p class="text-sm text-slate-200">{{ restaurant.city }}</p>
+                <p class="text-xs text-slate-400 truncate max-w-[200px]">{{ restaurant.address }}</p>
+              </td>
+              <td class="py-4 px-6">
+                <span *ngIf="!restaurant.banned" class="inline-flex items-center space-x-1.5">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+                  <span class="text-xs font-medium text-emerald-400">Active</span>
+                </span>
+                <span *ngIf="restaurant.banned" class="inline-flex items-center space-x-1.5">
+                  <span class="w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]"></span>
+                  <span class="text-xs font-medium text-rose-400">Banned</span>
+                </span>
+              </td>
+              <td class="py-4 px-6 text-right">
+                <button 
+                  (click)="toggleRestaurantBan(restaurant)"
+                  [ngClass]="restaurant.banned 
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:shadow-[0_0_15px_rgba(16,185,129,0.4)]' 
+                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500 hover:text-white shadow-[0_0_10px_rgba(244,63,94,0.1)] hover:shadow-[0_0_15px_rgba(244,63,94,0.4)]'"
+                  class="px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ease-out outline-none">
+                  {{ restaurant.banned ? 'Restore Operations' : 'Suspend Operations' }}
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="filteredRestaurants.length === 0 && !loading">
+              <td colspan="4" class="py-12 text-center text-slate-500">No restaurants found matching your search.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>

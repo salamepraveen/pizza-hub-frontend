@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CartService } from '../../../services/cartservice/cartservice';
 import { OrderService } from '../../../services/orderService/order.service';
+import { UserService } from '../../../services/userService/user.service';
 
 @Component({
   selector: 'app-cart',
@@ -21,16 +22,22 @@ export class Cart implements OnInit {
   placingOrder = false;
   orderSuccess = false;
   orderMessage = '';
+  phoneNumber = '';
+  initialAddress = '';
+  initialPhone = '';
 
   // Payment Gateway Simulator state
   showPaymentGateway = false;
   currentOrderId: number | null = null;
   processingPayment = false;
+  selectedPaymentOption: string = 'PHONEPE';
+  successPaymentId: string = '';
 
   constructor(
     public cartService: CartService,
     public router: Router,
     private orderService: OrderService,
+    private userService: UserService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -38,6 +45,21 @@ export class Cart implements OnInit {
     this.cartService.cart$.subscribe(items => {
       this.cartItems = items;
       this.calculateTotal();
+    });
+    this.loadUserProfile();
+  }
+
+  loadUserProfile() {
+    this.userService.getProfile().subscribe({
+      next: (res: any) => {
+        if (res.success && res.data) {
+          this.deliveryAddress = res.data.address || '';
+          this.phoneNumber = res.data.phoneNumber || '';
+          this.initialAddress = this.deliveryAddress;
+          this.initialPhone = this.phoneNumber;
+          this.cdr.detectChanges();
+        }
+      }
     });
   }
 
@@ -79,6 +101,11 @@ export class Cart implements OnInit {
       return;
     }
 
+    if (!this.phoneNumber || this.phoneNumber.trim().length < 10) {
+      this.orderMessage = 'Please provide a valid 10-digit phone number to place your order.';
+      return;
+    }
+
     if (this.cartItems.length === 0) {
       this.orderMessage = 'Your cart is empty.';
       return;
@@ -117,6 +144,14 @@ export class Cart implements OnInit {
       next: (response: any) => {
         this.placingOrder = false;
         this.showCheckout = false;
+
+        // Auto-update profile if address or phone changed
+        if (this.deliveryAddress !== this.initialAddress || this.phoneNumber !== this.initialPhone) {
+          this.userService.updateProfile({
+            address: this.deliveryAddress,
+            phoneNumber: this.phoneNumber
+          }).subscribe();
+        }
         
         if (this.paymentMode === 'ONLINE' && response.data?.id) {
           // Open Simulated Payment Gateway
@@ -150,7 +185,7 @@ export class Cart implements OnInit {
       next: (res: any) => {
         this.processingPayment = false;
         this.showPaymentGateway = false;
-        this.finalizeOrderSuccess('Payment successful, Order confirmed');
+        this.finalizeOrderSuccess('Payment successful, Order confirmed', paymentDetails.razorpayPaymentId);
       },
       error: (err: any) => {
         this.processingPayment = false;
@@ -167,9 +202,12 @@ export class Cart implements OnInit {
     this.cdr.detectChanges();
   }
 
-  finalizeOrderSuccess(message: string) {
+  finalizeOrderSuccess(message: string, paymentId?: string) {
     this.orderSuccess = true;
     this.orderMessage = message;
+    if (paymentId) {
+        this.successPaymentId = paymentId;
+    }
     this.cartService.clearCart();
     this.cdr.detectChanges();
   }

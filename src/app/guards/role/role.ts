@@ -26,8 +26,13 @@ export class Role implements CanActivate {
       return true;
     }
 
-    // Admin fallback
-    if (normalizedUserRole === 'ADMIN') {
+    // Platform Admin fallback - they can access everything
+    if (normalizedUserRole === 'PLATFORM_ADMIN') {
+      return true;
+    }
+
+    // Admin fallback - but NOT for PLATFORM_ADMIN routes
+    if (normalizedUserRole === 'ADMIN' && !normalizedExpectedRoles.includes('PLATFORM_ADMIN')) {
       return true;
     }
 

@@ -55,8 +55,8 @@ export class Signup implements OnInit, OnDestroy {
       this.errorMessage = 'Passwords do not match';
       return;
     }
-    if (this.password.length < 6) {
-      this.errorMessage = 'Password must be at least 6 characters';
+    if (this.password.length < 8) {
+      this.errorMessage = 'Password must be at least 8 characters';
       return;
     }
 

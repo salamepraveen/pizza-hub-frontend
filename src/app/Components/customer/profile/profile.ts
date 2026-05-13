@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../services/authService/authService';
+import { UserService } from '../../../services/userService/user.service';
 
 @Component({
   selector: 'app-profile',
@@ -19,7 +20,7 @@ export class CustomerProfile implements OnInit {
   message = '';
   error = '';
 
-  constructor(private http: HttpClient, private authService: AuthService, private cdr: ChangeDetectorRef) {}
+  constructor(private userService: UserService, private authService: AuthService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     this.loadProfile();
@@ -30,19 +31,19 @@ export class CustomerProfile implements OnInit {
     const token = sessionStorage.getItem('token');
     if (!username || !token) return;
     this.loading = true;
-    this.http.get(`/users/username/${username}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    }).subscribe({
+    this.userService.getProfile().subscribe({
       next: (res: any) => {
-        // The API returns the raw user DTO, but wait, the endpoint /users/email/{email} doesn't use ApiResponse.
-        // It returns UserDTO directly
-        this.user = res.data || res;
-        this.originalUser = { ...this.user };
+        if (res.success) {
+          this.user = res.data;
+          this.originalUser = { ...this.user };
+        } else {
+          this.error = res.message || 'Failed to load profile';
+        }
         this.loading = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
-        this.error = 'Failed to load profile';
+        this.error = err.error?.message || 'Failed to load profile';
         this.loading = false;
         this.cdr.detectChanges();
       }
@@ -68,12 +69,7 @@ export class CustomerProfile implements OnInit {
       address: this.user.address
     };
 
-    // Make sure we have the token for authorization
-    const token = sessionStorage.getItem('token');
-    
-    this.http.put(`/users/profile`, payload, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    }).subscribe({
+    this.userService.updateProfile(payload).subscribe({
       next: (res: any) => {
         if (res.success) {
           this.user = res.data;

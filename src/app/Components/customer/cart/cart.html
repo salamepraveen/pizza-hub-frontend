@@ -67,7 +67,12 @@
       </div>
       <div class="form-group">
         <label>Delivery Address *</label>
-        <textarea [(ngModel)]="deliveryAddress" rows="3" placeholder="Enter your full delivery address..."></textarea>
+        <textarea [(ngModel)]="deliveryAddress" rows="2" placeholder="Enter your full delivery address..."></textarea>
+      </div>
+      <div class="form-group" style="margin-top: 10px;">
+        <label>Phone Number *</label>
+        <input type="tel" [(ngModel)]="phoneNumber" placeholder="Enter 10-digit mobile number" maxlength="10" 
+               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
       </div>
       <div class="form-group">
         <label>Payment Method</label>
@@ -92,35 +97,67 @@
     </div>
   </div>
 
-  <!-- Simulated Razorpay Payment Gateway Modal -->
+  <!-- Simulated PhonePe Payment Gateway Modal -->
   <div class="modal-overlay" *ngIf="showPaymentGateway" style="z-index: 1000;">
-    <div class="checkout-modal" style="max-width: 400px; text-align: center; border-top: 5px solid #2b80ff;">
-      <h2 style="color: #2b80ff; margin-bottom: 5px;">Razorpay Simulator</h2>
-      <p style="color: #666; font-size: 14px; margin-bottom: 20px;">Test Environment</p>
-      
-      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-        <p style="margin: 0; font-size: 14px; color: #555;">Amount Payable</p>
-        <h1 style="margin: 5px 0 0 0; color: #333;">{{ cartTotal }}</h1>
-      </div>
-
-      <div class="form-group" style="text-align: left;">
-        <label>Payment Method</label>
-        <div style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; margin-bottom: 10px;">
-          Visa ending in •••• 4242
+    <div class="checkout-modal phonepe-modal">
+      <div class="phonepe-header">
+        <div class="phonepe-logo">
+          <h2>PhonePe</h2>
         </div>
+        <p class="phonepe-amount">₹{{ cartTotal }}</p>
       </div>
+      
+      <div class="phonepe-body">
+        <p class="select-text">Select Payment Method</p>
+        
+        <div class="payment-methods-list">
+          <label class="pm-option" [class.selected]="selectedPaymentOption === 'PHONEPE'">
+            <input type="radio" name="sim_payment" value="PHONEPE" [(ngModel)]="selectedPaymentOption">
+            <div class="pm-icon phonepe-icon">P</div>
+            <div class="pm-details">
+              <span class="pm-name">PhonePe</span>
+              <span class="pm-desc">Pay via PhonePe UPI</span>
+            </div>
+          </label>
 
-      <p class="error-msg" *ngIf="orderMessage && processingPayment">{{ orderMessage }}</p>
+          <label class="pm-option" [class.selected]="selectedPaymentOption === 'AMAZON'">
+            <input type="radio" name="sim_payment" value="AMAZON" [(ngModel)]="selectedPaymentOption">
+            <div class="pm-icon amazon-icon">a</div>
+            <div class="pm-details">
+              <span class="pm-name">Amazon Pay</span>
+              <span class="pm-desc">Pay via Amazon Pay UPI</span>
+            </div>
+          </label>
 
-      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 25px;">
-        <button style="background: #2b80ff; color: white; border: none; padding: 12px; border-radius: 4px; font-weight: bold; cursor: pointer;" 
-                [disabled]="processingPayment" (click)="simulatePaymentSuccess()">
-          {{ processingPayment ? 'Processing...' : 'Simulate Success' }}
-        </button>
-        <button style="background: white; color: #dc3545; border: 1px solid #dc3545; padding: 12px; border-radius: 4px; font-weight: bold; cursor: pointer;" 
-                [disabled]="processingPayment" (click)="simulatePaymentFailure()">
-          Simulate Failure
-        </button>
+          <label class="pm-option" [class.selected]="selectedPaymentOption === 'NETBANKING'">
+            <input type="radio" name="sim_payment" value="NETBANKING" [(ngModel)]="selectedPaymentOption">
+            <div class="pm-icon bank-icon">🏦</div>
+            <div class="pm-details">
+              <span class="pm-name">Net Banking</span>
+              <span class="pm-desc">All Indian Banks</span>
+            </div>
+          </label>
+
+          <label class="pm-option" [class.selected]="selectedPaymentOption === 'CARD'">
+            <input type="radio" name="sim_payment" value="CARD" [(ngModel)]="selectedPaymentOption">
+            <div class="pm-icon card-icon">💳</div>
+            <div class="pm-details">
+              <span class="pm-name">Credit / Debit Card</span>
+              <span class="pm-desc">Visa, MasterCard, RuPay</span>
+            </div>
+          </label>
+        </div>
+
+        <p class="error-msg text-center" *ngIf="orderMessage && processingPayment">{{ orderMessage }}</p>
+
+        <div class="phonepe-actions">
+          <button class="pay-now-btn" [disabled]="processingPayment" (click)="simulatePaymentSuccess()">
+            {{ processingPayment ? 'Processing...' : 'Pay ₹' + cartTotal }}
+          </button>
+          <button class="cancel-pay-btn" [disabled]="processingPayment" (click)="simulatePaymentFailure()">
+            Cancel Payment
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -128,8 +165,15 @@
   <!-- Order Success -->
   <div class="order-success" *ngIf="orderSuccess">
     <div class="success-card">
+      <div class="success-icon-check">✓</div>
       <h2>Order Placed!</h2>
-      <p>{{ orderMessage }}</p>
+      <p class="success-msg-text">{{ orderMessage }}</p>
+      
+      <div class="transaction-details" *ngIf="successPaymentId">
+        <p class="tx-label">Razorpay ID / Transaction ID</p>
+        <p class="tx-id">{{ successPaymentId }}</p>
+      </div>
+
       <p class="success-note">Track your order in My Orders.</p>
       <div class="success-actions">
         <button class="orders-btn" (click)="router.navigate(['/customer/orders'])">View My Orders</button>

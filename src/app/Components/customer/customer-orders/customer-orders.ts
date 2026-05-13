@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { OrderService } from '../../../services/orderService/order.service';
 import { MenuService } from '../../../services/menuService/menu.service';
+import { RestaurantService } from '../../../services/restaurant-service/restaurant.service';
 
 import { FormsModule } from '@angular/forms';
 
@@ -22,6 +23,12 @@ export class CustomerOrders implements OnInit {
   showCancelModal = false;
   cancelReason = '';
   orderToCancel: any = null;
+  
+  // Payment Gateway Simulator state
+  showPaymentGateway = false;
+  processingPayment = false;
+  selectedPaymentOption: string = 'PHONEPE';
+  paymentOrder: any = null;
 
   statusColors: any = {
     PLACED: '#3498db',
@@ -35,6 +42,7 @@ export class CustomerOrders implements OnInit {
   constructor(
     private orderService: OrderService,
     private menuService: MenuService,
+    private restaurantService: RestaurantService,
     public router: Router,
     private cdr: ChangeDetectorRef
   ) {}
@@ -55,10 +63,26 @@ export class CustomerOrders implements OnInit {
             this.menuService.getToppings().subscribe({
               next: (topRes: any) => {
                 const allToppings = topRes.data || topRes || [];
-                this.orders = this.recalculateOrderTotals(fetchedOrders, allPizzas, allToppings);
-                this.filterOrders();
-                this.loading = false;
-                this.cdr.detectChanges();
+                
+                this.restaurantService.getAllRestaurants().subscribe({
+                  next: (restRes: any) => {
+                    const allRestaurants = restRes.success ? (restRes.data || []) : [];
+                    this.orders = this.recalculateOrderTotals(fetchedOrders, allPizzas, allToppings);
+                    this.orders.forEach(order => {
+                      const rest = allRestaurants.find((r: any) => r.id === order.restaurantId);
+                      order.restaurantName = rest ? rest.name : 'Unknown Restaurant';
+                    });
+                    this.filterOrders();
+                    this.loading = false;
+                    this.cdr.detectChanges();
+                  },
+                  error: () => {
+                    this.orders = this.recalculateOrderTotals(fetchedOrders, allPizzas, allToppings);
+                    this.filterOrders();
+                    this.loading = false;
+                    this.cdr.detectChanges();
+                  }
+                });
               },
               error: () => {
                 this.orders = this.recalculateOrderTotals(fetchedOrders, allPizzas, []);
@@ -197,5 +221,42 @@ export class CustomerOrders implements OnInit {
 
   getPaymentStatus(paymentStatus: string): string {
     return paymentStatus || 'PENDING';
+  }
+
+  openPaymentGateway(order: any, event: Event) {
+    event.stopPropagation();
+    this.paymentOrder = order;
+    this.showPaymentGateway = true;
+    this.cdr.detectChanges();
+  }
+
+  simulatePaymentSuccess() {
+    if (!this.paymentOrder) return;
+    
+    this.processingPayment = true;
+    const paymentDetails = {
+      razorpayOrderId: 'order_mock_' + this.paymentOrder.id,
+      razorpayPaymentId: 'pay_mock_' + Math.floor(Math.random() * 1000000),
+      razorpaySignature: 'mock_signature'
+    };
+    
+    this.orderService.verifyPayment(this.paymentOrder.id, paymentDetails).subscribe({
+      next: (res: any) => {
+        this.processingPayment = false;
+        this.showPaymentGateway = false;
+        this.loadOrders();
+      },
+      error: (err: any) => {
+        this.processingPayment = false;
+        this.error = 'Payment verification failed.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  simulatePaymentFailure() {
+    this.showPaymentGateway = false;
+    this.paymentOrder = null;
+    this.cdr.detectChanges();
   }
 }

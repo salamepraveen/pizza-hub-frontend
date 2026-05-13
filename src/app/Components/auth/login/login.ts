@@ -47,7 +47,9 @@ export class Login {
           this.decodeAndStoreRestaurantId(token);
 
           const role = res.data.role;
-          if (role === 'ADMIN') {
+          if (role === 'PLATFORM_ADMIN') {
+            this.router.navigate(['/platform-admin']);
+          } else if (role === 'ADMIN') {
             this.router.navigate(['/admin/dashboard']);
           } else if (role === 'STAFF') {
             this.router.navigate(['/staff/dashboard']);

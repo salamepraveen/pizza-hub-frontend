@@ -69,3 +69,38 @@
     .payment-options { flex-direction: column; }
   }
 
+  /* PhonePe Simulator Styles */
+  .phonepe-modal { padding: 0; overflow: hidden; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+  .phonepe-header { background: #5f259f; color: white; padding: 24px; display: flex; justify-content: space-between; align-items: center; }
+  .phonepe-logo h2 { color: white; margin: 0; font-size: 1.5rem; letter-spacing: 0.5px; }
+  .phonepe-amount { font-size: 1.8rem; font-weight: 700; margin: 0; }
+  .phonepe-body { padding: 24px; background: #f8f9fa; }
+  .select-text { color: #666; font-size: 0.95rem; margin-bottom: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .payment-methods-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+  .pm-option { display: flex; align-items: center; background: white; padding: 16px; border-radius: 12px; border: 2px solid transparent; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin: 0; }
+  .pm-option input { display: none; }
+  .pm-option:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .pm-option.selected { border-color: #5f259f; background: #fdfcff; }
+  .pm-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; color: white; margin-right: 16px; flex-shrink: 0; }
+  .phonepe-icon { background: #5f259f; }
+  .amazon-icon { background: #ff9900; font-family: serif; font-style: italic; }
+  .bank-icon { background: #3498db; }
+  .card-icon { background: #2c3e50; }
+  .pm-details { display: flex; flex-direction: column; text-align: left; }
+  .pm-name { font-weight: 700; color: #333; font-size: 1.05rem; margin-bottom: 4px; }
+  .pm-desc { font-size: 0.85rem; color: #888; }
+  .phonepe-actions { display: flex; flex-direction: column; gap: 12px; }
+  .pay-now-btn { background: #5f259f; color: white; border: none; padding: 16px; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 12px rgba(95,37,159,0.3); }
+  .pay-now-btn:hover { background: #4a1d7c; }
+  .pay-now-btn:disabled { background: #a58ac4; cursor: not-allowed; box-shadow: none; }
+  .cancel-pay-btn { background: transparent; color: #e74c3c; border: 1px solid #e74c3c; padding: 14px; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .cancel-pay-btn:hover { background: #fdf0f0; }
+  .text-center { text-align: center; }
+
+  /* Success Screen Updates */
+  .success-icon-check { width: 80px; height: 80px; background: #27ae60; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 3rem; margin: 0 auto 20px; font-weight: bold; box-shadow: 0 4px 15px rgba(39,174,96,0.3); }
+  .success-msg-text { font-size: 1.1rem; color: #555; margin-bottom: 24px; }
+  .transaction-details { background: #f8f9fa; border: 1px dashed #ccc; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+  .tx-label { color: #888; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .tx-id { font-family: monospace; font-size: 1.2rem; color: #1a1a2e; font-weight: 700; word-break: break-all; margin: 0; }
+

@@ -22,6 +22,7 @@ import { Settings } from './Components/admin/settings/settings';
 import { StaffLayout } from './Components/staff/staff-layout/staff-layout';
 import { StaffDashboard } from './Components/staff/staff-dashboard/staff-dashboard';
 import { StaffOrders } from './Components/staff/staff-orders/staff-orders';
+import { PlatformAdminDashboardComponent } from './Components/platform-admin-dashboard/platform-admin-dashboard.component';
 
 export const routes: Routes = [
   { path: '', component: Home },
@@ -75,6 +76,14 @@ export const routes: Routes = [
       { path: 'orders', component: StaffOrders },
       { path: 'menu', component: Menu }
     ]
+  },
+
+  // Platform Admin Routes
+  {
+    path: 'platform-admin',
+    canActivate: [Auth, Role],
+    data: { expectedRoles: ['PLATFORM_ADMIN'] },
+    component: PlatformAdminDashboardComponent
   },
 
   { path: '**', redirectTo: '' }

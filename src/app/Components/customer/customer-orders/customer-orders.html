@@ -27,6 +27,9 @@
           <div class="order-card-header" (click)="viewOrderDetail(order)">
             <div class="order-left">
               <span class="order-id">Order #{{ order.id }}</span>
+              <div class="restaurant-name-badge" style="font-size: 0.85rem; color: #666; margin-top: 2px; font-weight: 500;">
+                📍 {{ order.restaurantName }}
+              </div>
               <span class="order-date">{{ getOrderDate(order.createdAt || order.orderDate) }}</span>
             </div>
             <div class="order-right">
@@ -63,6 +66,9 @@
                 </span>
               </div>
               <div class="order-actions" *ngIf="['PLACED', 'CONFIRMED'].includes(order.status)">
+                <button *ngIf="getPaymentStatus(order.paymentStatus) === 'PENDING' && order.paymentMethod === 'ONLINE'" 
+                        class="pay-btn" style="background: #27ae60; color: white; border: none; padding: 8px 16px; border-radius: 4px; margin-right: 10px; cursor: pointer; font-weight: 600;"
+                        (click)="openPaymentGateway(order, $event)">Pay Now</button>
                 <button class="cancel-btn" (click)="openCancelModal(order, $event)">Cancel Order</button>
               </div>
             </div>
@@ -79,6 +85,9 @@
           <div class="order-card-header" (click)="viewOrderDetail(order)">
             <div class="order-left">
               <span class="order-id">Order #{{ order.id }}</span>
+              <div class="restaurant-name-badge" style="font-size: 0.85rem; color: #666; margin-top: 2px; font-weight: 500;">
+                📍 {{ order.restaurantName }}
+              </div>
               <span class="order-date">{{ getOrderDate(order.createdAt || order.orderDate) }}</span>
             </div>
             <div class="order-right">
@@ -139,6 +148,51 @@
     <div class="modal-footer">
       <button class="btn-secondary" (click)="closeCancelModal()">Go Back</button>
       <button class="btn-danger" (click)="cancelOrder()">Confirm Cancellation</button>
+    </div>
+  </div>
+</div>
+
+<!-- Simulated PhonePe Payment Gateway Modal -->
+<div class="modal-overlay" *ngIf="showPaymentGateway" style="z-index: 1000;">
+  <div class="modal-content phonepe-modal" style="max-width: 400px; padding: 0; border-radius: 12px; overflow: hidden; background: white; margin: 50px auto; position: relative;">
+    <div class="phonepe-header" style="background: #5f259f; color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+      <div class="phonepe-logo">
+        <h2 style="margin: 0; font-size: 1.5rem;">PhonePe</h2>
+      </div>
+      <p class="phonepe-amount" style="margin: 0; font-size: 1.2rem; font-weight: bold;">₹{{ paymentOrder?.totalAmount }}</p>
+    </div>
+    
+    <div class="phonepe-body" style="padding: 20px; background: #fff;">
+      <p class="select-text" style="color: #666; font-size: 0.9rem; margin-bottom: 20px;">Select Payment Method</p>
+      
+      <div class="payment-methods-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 25px;">
+        <label class="pm-option" [class.selected]="selectedPaymentOption === 'PHONEPE'" style="display: flex; align-items: center; gap: 15px; padding: 12px; border: 1px solid #eee; border-radius: 8px; cursor: pointer;">
+          <input type="radio" name="sim_payment" value="PHONEPE" [(ngModel)]="selectedPaymentOption">
+          <div class="pm-icon" style="width: 35px; height: 35px; background: #5f259f; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">P</div>
+          <div class="pm-details">
+            <span class="pm-name" style="display: block; font-weight: 600; color: #333;">PhonePe</span>
+            <span class="pm-desc" style="display: block; font-size: 0.8rem; color: #888;">Pay via PhonePe UPI</span>
+          </div>
+        </label>
+
+        <label class="pm-option" [class.selected]="selectedPaymentOption === 'AMAZON'" style="display: flex; align-items: center; gap: 15px; padding: 12px; border: 1px solid #eee; border-radius: 8px; cursor: pointer;">
+          <input type="radio" name="sim_payment" value="AMAZON" [(ngModel)]="selectedPaymentOption">
+          <div class="pm-icon" style="width: 35px; height: 35px; background: #232f3e; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">a</div>
+          <div class="pm-details">
+            <span class="pm-name" style="display: block; font-weight: 600; color: #333;">Amazon Pay</span>
+            <span class="pm-desc" style="display: block; font-size: 0.8rem; color: #888;">Pay via Amazon Pay UPI</span>
+          </div>
+        </label>
+      </div>
+
+      <div class="phonepe-actions" style="display: flex; flex-direction: column; gap: 10px;">
+        <button class="pay-now-btn" [disabled]="processingPayment" (click)="simulatePaymentSuccess()" style="background: #5f259f; color: white; border: none; padding: 14px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+          {{ processingPayment ? 'Processing...' : 'Pay Now' }}
+        </button>
+        <button class="cancel-pay-btn" [disabled]="processingPayment" (click)="simulatePaymentFailure()" style="background: transparent; color: #666; border: none; padding: 10px; cursor: pointer; font-size: 0.9rem;">
+          Cancel Payment
+        </button>
+      </div>
     </div>
   </div>
 </div>

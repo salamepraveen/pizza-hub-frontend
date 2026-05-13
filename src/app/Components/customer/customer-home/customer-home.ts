@@ -84,8 +84,12 @@ export class CustomerHome implements OnInit {
       this.pizzas.forEach(pizza => {
         const rest = this.restaurants.find(r => r.id === pizza.restaurantId);
         pizza.restaurantName = rest ? rest.name : 'Unknown Restaurant';
+        pizza.restaurantBanned = rest ? rest.banned : false;
       });
-      this.trendingPizzas = this.pizzas.slice(0, 6);
+      // Filter trending pizzas to only show from active restaurants
+      this.trendingPizzas = this.pizzas
+        .filter(p => !p.restaurantBanned)
+        .slice(0, 6);
       this.cdr.detectChanges();
     }
   }
@@ -97,7 +101,6 @@ export class CustomerHome implements OnInit {
         if (res.success && res.data) {
           this.pizzas = res.data.filter((p: any) => p.isAvailable !== false);
         }
-        this.trendingPizzas = this.pizzas.slice(0, 6);
         this.filteredPizzas = [...this.pizzas];
         this.mapRestaurantNames();
         this.loading = false;
@@ -150,6 +153,7 @@ export class CustomerHome implements OnInit {
   }
 
   selectRestaurant(restaurant: any) {
+    if (restaurant.banned) return;
     this.selectedRestaurant = restaurant;
     this.viewMode = 'menu';
     this.searchQuery = '';

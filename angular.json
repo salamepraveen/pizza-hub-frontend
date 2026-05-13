@@ -18,6 +18,8 @@
           "builder": "@angular/build:application",
           "options": {
             "browser": "src/main.ts",
+            "outputPath": "dist/restaurant-app",
+            "index": "src/index.html",
             "tsConfig": "tsconfig.app.json",
             "assets": ["src/assets"],
             "styles": ["src/styles.css"]

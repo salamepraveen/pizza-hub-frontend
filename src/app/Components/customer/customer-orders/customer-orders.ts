@@ -29,6 +29,9 @@ export class CustomerOrders implements OnInit {
   processingPayment = false;
   selectedPaymentOption: string = 'PHONEPE';
   paymentOrder: any = null;
+  
+  showRefundMessage = false;
+  refundMessage = '';
 
   statusColors: any = {
     PLACED: '#3498db',
@@ -163,6 +166,11 @@ export class CustomerOrders implements OnInit {
     this.cancelReason = '';
   }
 
+  closeRefundMessage() {
+    this.showRefundMessage = false;
+    this.refundMessage = '';
+  }
+
   cancelOrder() {
     if (!this.cancelReason.trim()) {
       this.error = 'Please provide a reason for cancellation';
@@ -173,6 +181,8 @@ export class CustomerOrders implements OnInit {
     this.orderService.cancelOrder(this.orderToCancel.id, this.cancelReason).subscribe({
       next: (res: any) => {
         this.closeCancelModal();
+        this.refundMessage = "Your refund is initiated and will be available in your bank within 1-2 working days.";
+        this.showRefundMessage = true;
         this.loadOrders(); 
       },
       error: (err: any) => {

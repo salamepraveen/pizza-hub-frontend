@@ -196,4 +196,18 @@
     </div>
   </div>
 </div>
-
+<!-- Refund Initiation Modal -->
+<div class="modal-overlay" *ngIf="showRefundMessage" style="z-index: 1100;">
+  <div class="modal-content success-modal" style="max-width: 400px; text-align: center; padding: 30px;">
+    <div class="success-icon" style="width: 80px; height: 80px; background: #27ae60; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 20px;">
+      ✓
+    </div>
+    <h2 style="color: #2c3e50; margin-bottom: 15px;">Order Cancelled</h2>
+    <p style="color: #666; font-size: 1.1rem; line-height: 1.5; margin-bottom: 25px;">
+      {{ refundMessage }}
+    </p>
+    <button class="btn-primary" (click)="closeRefundMessage()" style="background: #27ae60; color: white; border: none; padding: 12px 30px; border-radius: 6px; font-weight: 600; cursor: pointer; width: 100%;">
+      Great, Thanks!
+    </button>
+  </div>
+</div>

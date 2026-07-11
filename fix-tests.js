@@ -42,6 +42,8 @@ walkDir(dirToScan, function(filePath) {
         // Replace toBeFalse() with toBe(false)
         content = content.replace(/\.toBeFalse\(\)/g, '.toBe(false)');
 
+      
+
         // Replace toBeTrue() with toBe(true)
         content = content.replace(/\.toBeTrue\(\)/g, '.toBe(true)');
 
